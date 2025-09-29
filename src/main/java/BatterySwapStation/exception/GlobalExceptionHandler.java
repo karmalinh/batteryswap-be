@@ -13,29 +13,29 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Xử lý lỗi xác thực dữ liệu
+    // Gửi nhiều lỗi validate cùng lúc
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> messages = new HashMap<>();
         for (FieldError err : ex.getBindingResult().getFieldErrors()) {
-            errors.put(err.getField(), err.getDefaultMessage());
+            messages.put(err.getField(), err.getDefaultMessage());
         }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("messages", messages);
+        body.put("error", "Validation failed");
+        body.put("status", 400);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
-    // Xử lý lỗi IllegalArgumentException
+    // Business logic error (email tồn tại, confirmPassword sai, role không tồn tại)
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-    }
-
-    // Xử lý các lỗi không mong muốn khác
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "Unexpected error: " + ex.getMessage());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("messages", Map.of("business", ex.getMessage()));
+        body.put("error", "Business error");
+        body.put("status", 400);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 }
