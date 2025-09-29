@@ -55,7 +55,7 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",              // Swagger local
                 "http://127.0.0.1:*",              // Backup local
-                "https://swp-be-demo.up.railway.app" // Railway
+                "https://batteryswap-be-production.up.railway.app" // Railway
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
