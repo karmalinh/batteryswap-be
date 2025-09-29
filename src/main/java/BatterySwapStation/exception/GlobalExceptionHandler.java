@@ -38,4 +38,15 @@ public class GlobalExceptionHandler {
         body.put("status", 400);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
+
+    // Xử lý RuntimeException (vd: login sai mật khẩu, email không tồn tại)
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("messages", Map.of("auth", ex.getMessage()));
+        body.put("error", "Authentication error");
+        body.put("status", 401); // 401 Unauthorized thay vì 403
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
 }
