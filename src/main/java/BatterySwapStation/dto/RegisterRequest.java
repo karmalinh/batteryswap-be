@@ -23,8 +23,8 @@ public class RegisterRequest {
     @NotBlank(message = "Địa chỉ không được để trống")
     private String address;
 
-    @NotNull(message = "Loại tài khoản không được để trống")
-    private Integer roleId;
+//    @NotNull(message = "Loại tài khoản không được để trống")
+//    private Integer roleId;
 
     @NotBlank(message = "Mật khẩu không được để trống")
     @Size(min = 6, message = "Mật khẩu phải ít nhất 6 ký tự")

@@ -27,15 +27,17 @@ public class UserService {
             throw new IllegalArgumentException("Email đã tồn tại!");
         }
 
-        Role role = roleRepository.findByRoleId(req.getRoleId());
-        if (role == null) {
-            throw new IllegalArgumentException("Role không tồn tại!");
-        }
-
         if (!req.getPassword().equals(req.getConfirmPassword())) {
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp");
         }
 
+        // 🔧 Lấy role mặc định Driver
+        Role role = roleRepository.findByRoleId(1);
+        if (role == null) {
+            throw new IllegalArgumentException("Role mặc định (Driver) không tồn tại!");
+        }
+
+        // 🔧 Sinh UserId dựa trên role
         String generatedId = userIdGenerator.generateUserId(role);
 
         User user = new User();
@@ -46,9 +48,11 @@ public class UserService {
         user.setAddress(req.getAddress());
         user.setPassword(passwordEncoder.encode(req.getPassword()));
         user.setRole(role);
+        user.setActive(true);   // 🔧 nhớ set active mặc định
 
         return userRepository.save(user);
     }
+
 
 
     public User findByEmail(String email) {

@@ -7,12 +7,9 @@ import BatterySwapStation.service.*;
 import BatterySwapStation.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
-import java.util.HashMap;
 
 import java.util.Map;
 
@@ -27,12 +24,14 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
+        
         User user = userService.registerUser(req);
         return ResponseEntity.ok(Map.of(
                 "message", "Đăng ký thành công",
                 "userId", user.getUserId()
         ));
     }
+
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {

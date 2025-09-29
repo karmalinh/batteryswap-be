@@ -13,6 +13,4 @@ public class LoginRequest {
     @Size(min = 6, message = "Mật khẩu phải ít nhất 6 ký tự")
     private String password;
 
-    @NotNull(message = "Loại tài khoản không được để trống")
-    private int roleId;
 }
