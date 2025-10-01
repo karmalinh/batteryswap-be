@@ -1,4 +1,4 @@
-package BatterySwapStation.utils;
+package BatterySwapStation.dto;
 
 import BatterySwapStation.entity.Vehicle;
 import jakarta.validation.constraints.NotBlank;
