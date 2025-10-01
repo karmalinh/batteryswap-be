@@ -40,11 +40,9 @@ public class Vehicle {
     }
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private VehicleType vehicleType;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private BatteryType batteryType;
 
     @Column(nullable = false)

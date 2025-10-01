@@ -71,6 +71,9 @@ INSERT INTO vehicle (vin, batterytype, isactive, vehicletype, userid) VALUES
 ('LVSHVENT1NE000011', 'LITHIUM_ION', true, 'VENTO', 'DR001'); -- VinFast Vento
 
 
+ALTER TABLE vehicle ALTER COLUMN batterytype DROP NOT NULL;
+ALTER TABLE vehicle ALTER COLUMN vehicletype DROP NOT NULL;
+
 
 -- Kiểm tra dữ liệu đã thêm
 SELECT * FROM vehicle WHERE userid = 'DR001' ORDER BY vehicleid;
