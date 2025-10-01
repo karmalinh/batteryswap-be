@@ -1,6 +1,6 @@
 package BatterySwapStation.service;
 
-import BatterySwapStation.dto.VehicleRegistrationRequest;
+import BatterySwapStation.utils.VehicleRegistrationRequest;
 import BatterySwapStation.entity.User;
 import BatterySwapStation.entity.Vehicle;
 import BatterySwapStation.repository.UserRepository;
