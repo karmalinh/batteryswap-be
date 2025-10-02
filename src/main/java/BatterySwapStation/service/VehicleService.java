@@ -82,6 +82,7 @@ public class VehicleService {
                 .orElseThrow(() -> new EntityNotFoundException("Vehicle not found or does not belong to the user."));
 
         vehicle.setActive(false);
+        vehicle.setUser(null);
         vehicleRepository.save(vehicle);
     }
 }
