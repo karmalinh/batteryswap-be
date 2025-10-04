@@ -3,6 +3,8 @@ package BatterySwapStation.entity;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 
 @Entity
 @Table(name = "Battery")
@@ -10,18 +12,18 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Battery {
-
+    // ID định dạng BAT001, BAT002
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "BatteryId")
-    private Integer batteryId;
-
-    @Column(name = "SerialNumber", nullable = false, unique = true, length = 100)
-    private String serialNumber;
+    @Column(name = "BatteryId", length = 10)
+    private String batteryId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "BatteryStatus", nullable = false, length = 50)
     private BatteryStatus batteryStatus = BatteryStatus.AVAILABLE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "BatteryType", nullable = false, length = 50)
+    private BatteryType batteryType ;
 
     @Column(name = "IsActive", nullable = false)
     private boolean isActive = true;
@@ -30,6 +32,12 @@ public class Battery {
     @OneToOne(mappedBy = "battery", fetch = FetchType.LAZY)
     @JsonBackReference
     private DockSlot dockSlot;
+
+    public enum BatteryType {
+        LITHIUM_ION,
+        NICKEL_METAL_HYDRIDE,
+        LEAD_ACID
+    }
 
     public enum BatteryStatus {
         AVAILABLE,

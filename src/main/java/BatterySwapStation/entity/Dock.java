@@ -28,7 +28,7 @@ public class Dock {
 
     // N-1: Dock thuộc về Station
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "StationId", nullable = false)
+    @JoinColumn(name = "StationId")
     @JsonBackReference
     private Station station;
 

@@ -27,7 +27,7 @@ public class StationService {
     }
 
     private StationResponseDTO mapToDTO(Station station) {
-        // Tổng hợp theo trạng thái pin (AVAILABLE, IN_USE, CHARGING, DAMAGED)
+
         Map<String, Long> batterySummary = station.getDocks().stream()
                 .flatMap(dock -> dock.getDockSlots().stream())
                 .filter(slot -> slot.getBattery() != null)
@@ -36,12 +36,11 @@ public class StationService {
                         Collectors.counting()
                 ));
 
-        // Nếu chưa có BatteryType thì có thể dùng nhóm theo Active/Inactive
         Map<String, Long> batteryTypes = station.getDocks().stream()
                 .flatMap(dock -> dock.getDockSlots().stream())
-                .filter(slot -> slot.getBattery() != null)
+                .filter(slot -> slot.getBattery() != null && slot.getBattery().getBatteryType() != null)
                 .collect(Collectors.groupingBy(
-                        slot -> slot.getBattery().isActive() ? "Active" : "Inactive",
+                        slot -> slot.getBattery().getBatteryType().toString(),
                         Collectors.counting()
                 ));
 
