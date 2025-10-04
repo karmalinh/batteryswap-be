@@ -3,7 +3,8 @@ package BatterySwapStation.entity;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
-import java.util.Objects;
+
+
 
 @Entity
 @Table(name = "Vehicle", indexes = {
