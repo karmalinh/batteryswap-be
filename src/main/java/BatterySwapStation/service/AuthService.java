@@ -52,6 +52,7 @@ public class AuthService {
         String token = jwtService.generateToken(
                 user.getUserId(),
                 user.getEmail(),
+                user.getPhone(),
                 user.getRole().getRoleName()
         );
 
@@ -59,6 +60,7 @@ public class AuthService {
                 "Đăng nhập thành công",
                 user.getUserId(),
                 user.getEmail(),
+                user.getPhone(),
                 user.getRole().getRoleName(),
                 token
         );
