@@ -11,4 +11,3 @@ public class VehicleInfoResponse {
     private String vin;
     private String phone;
 }
-
