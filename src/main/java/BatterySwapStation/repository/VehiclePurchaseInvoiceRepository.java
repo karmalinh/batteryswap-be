@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface VehiclePurchaseInvoiceRepository extends JpaRepository<VehiclePurchaseInvoice, Long> {
     Optional<VehiclePurchaseInvoice> findByInvoiceNumber(String invoiceNumber);
-    Optional<VehiclePurchaseInvoice> findByVehicle_VehicleId(int vehicleId);
+    Optional<VehiclePurchaseInvoice> findByVehicle_VIN(String vin);
 
     @Data
     public class PaymentRequest {

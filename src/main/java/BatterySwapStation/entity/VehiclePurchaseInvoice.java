@@ -6,27 +6,29 @@ import lombok.*;
 
 @Entity
 @Table(name = "VehiclePurchaseInvoice")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class VehiclePurchaseInvoice {
 
-
     @Id
-    @Column(name = "VIN", nullable = false, length = 100)
-    private String vin;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "InvoiceId")
+    private Long invoiceId;
 
-    // Liên kết 1-1 với Vehicle qua VIN
+    @Column(name = "VIN", length = 100, nullable = false, unique = true, insertable = false, updatable = false)
+    private String VIN;
+
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "VIN", referencedColumnName = "VIN", nullable = false)
+    @JoinColumn(name = "VIN", referencedColumnName = "VIN")
     @JsonBackReference
     private Vehicle vehicle;
 
     @Column(name = "InvoiceNumber", nullable = false, unique = true, length = 50)
-    private String invoiceNumber; // Mã hóa đơn từ đại lý/nhà sản xuất
+    private String invoiceNumber;
 
-    // Thông tin người mua để xác thực
     @Column(name = "BuyerName", nullable = false, length = 255)
     private String buyerName;
 
@@ -36,7 +38,6 @@ public class VehiclePurchaseInvoice {
     @Column(name = "BuyerPhone", nullable = false, length = 50)
     private String buyerPhone;
 
-    // Trạng thái xác thực
     @Column(name = "IsVerified", nullable = false)
     private boolean isVerified = false;
 }

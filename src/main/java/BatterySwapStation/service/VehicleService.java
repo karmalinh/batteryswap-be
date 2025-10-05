@@ -46,9 +46,12 @@ public class VehicleService {
         response.setActive(vehicle.isActive());
         response.setVin(vehicle.getVIN());
         // Lấy phone từ bảng VehiclePurchaseInvoice theo vehicleId
-        String phone = invoiceRepository.findByVehicle_VehicleId(vehicle.getVehicleId())
+        String phone = invoiceRepository.findByVehicle_VIN(vehicle.getVIN())
                 .map(VehiclePurchaseInvoice::getBuyerPhone)
                 .orElse(null);
+
+
+
         response.setPhone(phone);
         return response;
     }

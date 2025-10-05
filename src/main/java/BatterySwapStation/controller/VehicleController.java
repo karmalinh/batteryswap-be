@@ -30,10 +30,11 @@ public class VehicleController {
 
     @GetMapping("/{vin}")
     @Operation(summary = "Get vehicle information by VIN")
-    public ResponseEntity<VehicleInfoResponse> getVehicleByVin(@PathVariable String vin) {
+    public ResponseEntity<VehicleInfoResponse> getVehicleByVIN(@PathVariable("vin") String vin) {
         VehicleInfoResponse response = vehicleService.getVehicleInfoResponseByVin(vin);
         return ResponseEntity.ok(response);
     }
+
 
     @PostMapping("/assign")
     @Operation(summary = "Assign an existing vehicle to the current user")
