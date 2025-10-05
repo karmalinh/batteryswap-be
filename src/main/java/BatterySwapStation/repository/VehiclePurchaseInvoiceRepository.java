@@ -7,6 +7,7 @@ import java.util.Optional;
 
 public interface VehiclePurchaseInvoiceRepository extends JpaRepository<VehiclePurchaseInvoice, Long> {
     Optional<VehiclePurchaseInvoice> findByInvoiceNumber(String invoiceNumber);
+    Optional<VehiclePurchaseInvoice> findByVehicle_VehicleId(int vehicleId);
 
     @Data
     public class PaymentRequest {
@@ -17,4 +18,3 @@ public interface VehiclePurchaseInvoiceRepository extends JpaRepository<VehicleP
         // Có thể bổ sung thêm các trường paymentMethod, amount nếu cần
     }
 }
-

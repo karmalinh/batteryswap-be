@@ -3,6 +3,7 @@ package BatterySwapStation.controller;
 import BatterySwapStation.dto.ApiResponseDto;
 import BatterySwapStation.dto.AssignVehicleRequest;
 import BatterySwapStation.dto.VehicleRegistrationRequest;
+import BatterySwapStation.dto.VehicleInfoResponse;
 import BatterySwapStation.entity.User;
 import BatterySwapStation.entity.Vehicle;
 import BatterySwapStation.service.VehicleService;
@@ -29,9 +30,9 @@ public class VehicleController {
 
     @GetMapping("/{vin}")
     @Operation(summary = "Get vehicle information by VIN")
-    public ResponseEntity<Vehicle> getVehicleByVin(@PathVariable String vin) {
-        Vehicle vehicle = vehicleService.getVehicleInfoByVin(vin);
-        return ResponseEntity.ok(vehicle);
+    public ResponseEntity<VehicleInfoResponse> getVehicleByVin(@PathVariable String vin) {
+        VehicleInfoResponse response = vehicleService.getVehicleInfoResponseByVin(vin);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/assign")
