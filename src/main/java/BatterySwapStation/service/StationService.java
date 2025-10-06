@@ -1,6 +1,9 @@
 package BatterySwapStation.service;
 
 import BatterySwapStation.dto.StationResponseDTO;
+import BatterySwapStation.entity.Battery;
+import BatterySwapStation.entity.Dock;
+import BatterySwapStation.entity.DockSlot;
 import BatterySwapStation.entity.Station;
 import BatterySwapStation.repository.StationRepository;
 import BatterySwapStation.utils.GeoUtils;
@@ -74,30 +77,43 @@ public class StationService {
     }
 
     private StationResponseDTO mapToDTO(Station station) {
+        Set<String> seen = new HashSet<>();
 
-        // ✅ Tổng hợp số lượng pin theo trạng thái
-        Map<String, Long> batterySummary = Optional.ofNullable(station.getDocks())
-                .orElse(Collections.emptySet()) // dùng emptySet cho Set<>
+        // ⚠️ bỏ .filter(Battery::isActive) để vẫn đếm được DAMAGED
+        List<Battery> bats = Optional.ofNullable(station.getDocks())
+                .orElseGet(Collections::emptySet)
                 .stream()
-                .flatMap(dock -> Optional.ofNullable(dock.getDockSlots())
-                        .orElse(Collections.emptySet())
-                        .stream())
-                .filter(slot -> slot.getBattery() != null)
+                .filter(Objects::nonNull)
+                .filter(Dock::isActive)                    // giữ lọc dock active
+                .flatMap(d -> Optional.ofNullable(d.getDockSlots())
+                        .orElseGet(Collections::emptySet).stream())
+                .filter(Objects::nonNull)
+                .filter(DockSlot::isActive)                // giữ lọc slot active
+                .map(DockSlot::getBattery)
+                .filter(Objects::nonNull)
+                .filter(b -> b.getBatteryId()!=null && seen.add(b.getBatteryId())) // khử trùng
+                .collect(Collectors.toList());
+
+        // ✅ Summary: chỉ 3 trạng thái, bỏ IN_USE
+        Map<String, Long> batterySummary = bats.stream()
+                .filter(b -> b.getBatteryStatus()!=null)
+                .filter(b -> b.getBatteryStatus()==Battery.BatteryStatus.AVAILABLE
+                        || b.getBatteryStatus()==Battery.BatteryStatus.CHARGING
+                        || b.getBatteryStatus()==Battery.BatteryStatus.DAMAGED)
                 .collect(Collectors.groupingBy(
-                        slot -> slot.getBattery().getBatteryStatus().toString(),
+                        b -> b.getBatteryStatus().name(),
+                        LinkedHashMap::new,
                         Collectors.counting()
                 ));
 
-        // ✅ Tổng hợp số lượng pin theo loại
-        Map<String, Long> batteryTypes = Optional.ofNullable(station.getDocks())
-                .orElse(Collections.emptySet())
-                .stream()
-                .flatMap(dock -> Optional.ofNullable(dock.getDockSlots())
-                        .orElse(Collections.emptySet())
-                        .stream())
-                .filter(slot -> slot.getBattery() != null && slot.getBattery().getBatteryType() != null)
+        // ✅ Types: chỉ đếm loại pin có thể dùng (AVAILABLE + CHARGING)
+        Map<String, Long> batteryTypes = bats.stream()
+                .filter(b -> b.getBatteryStatus()==Battery.BatteryStatus.AVAILABLE
+                        || b.getBatteryStatus()==Battery.BatteryStatus.CHARGING)
+                .filter(b -> b.getBatteryType()!=null)
                 .collect(Collectors.groupingBy(
-                        slot -> slot.getBattery().getBatteryType().toString(),
+                        b -> b.getBatteryType().name(),
+                        LinkedHashMap::new,
                         Collectors.counting()
                 ));
 
@@ -110,8 +126,7 @@ public class StationService {
                 station.isActive(),
                 batterySummary,
                 batteryTypes,
-                null // distanceKm set ở chỗ khác
+                null
         );
     }
-
 }
