@@ -3,7 +3,6 @@ package BatterySwapStation.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.math.BigDecimal;
 import java.util.Map;
 
@@ -18,9 +17,10 @@ public class StationResponseDTO {
     private BigDecimal longitude;
     private boolean isActive;
 
-    // Thống kê pin theo trạng thái (FULL, CHARGING, EMPTY, DAMAGED)
+    // Thống kê pin (có sẵn)
     private Map<String, Long> batterySummary;
-
-    // Thống kê pin theo loại (LITHIUM_ION, LEAD_ACID, ...)
     private Map<String, Long> batteryTypes;
+
+    // ➕ Thêm khoảng cách
+    private Double distanceKm;
 }
