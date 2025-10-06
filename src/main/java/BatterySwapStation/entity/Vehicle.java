@@ -1,7 +1,6 @@
 package BatterySwapStation.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -48,10 +47,6 @@ public class Vehicle {
     @Column(nullable = false)
     private boolean isActive = false;
 
-    // 1–1 với VehiclePurchaseInvoice, nối qua VIN
-    @OneToOne(mappedBy = "vehicle", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @JsonManagedReference
-    private VehiclePurchaseInvoice purchaseInvoice;
 
     @Override
     public boolean equals(Object o) {

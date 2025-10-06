@@ -4,10 +4,8 @@ import BatterySwapStation.dto.VehicleRegistrationRequest;
 import BatterySwapStation.dto.VehicleInfoResponse;
 import BatterySwapStation.entity.User;
 import BatterySwapStation.entity.Vehicle;
-import BatterySwapStation.entity.VehiclePurchaseInvoice;
 import BatterySwapStation.repository.UserRepository;
 import BatterySwapStation.repository.VehicleRepository;
-import BatterySwapStation.repository.VehiclePurchaseInvoiceRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +19,6 @@ public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
-    private final VehiclePurchaseInvoiceRepository invoiceRepository;
 
     private boolean validateVIN(String vin) {
         return vin != null && vin.length() == 17 && vin.matches("^[A-HJ-NPR-Z0-9]{17}$");
@@ -45,14 +42,7 @@ public class VehicleService {
         response.setBatteryType(vehicle.getBatteryType().toString());
         response.setActive(vehicle.isActive());
         response.setVin(vehicle.getVIN());
-        // Lấy phone từ bảng VehiclePurchaseInvoice theo vehicleId
-        String phone = invoiceRepository.findByVehicle_VIN(vehicle.getVIN())
-                .map(VehiclePurchaseInvoice::getBuyerPhone)
-                .orElse(null);
-
-
-
-        response.setPhone(phone);
+        // Không còn dùng buyerPhone nữa
         return response;
     }
 

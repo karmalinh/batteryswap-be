@@ -9,5 +9,4 @@ public class VehicleInfoResponse {
     private String batteryType;
     private boolean active;
     private String vin;
-    private String phone;
 }
