@@ -3,10 +3,11 @@ package BatterySwapStation.service;
 import BatterySwapStation.dto.StationResponseDTO;
 import BatterySwapStation.entity.Station;
 import BatterySwapStation.repository.StationRepository;
+import BatterySwapStation.utils.GeoUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,64 +17,84 @@ public class StationService {
 
     private final StationRepository stationRepository;
 
+    /**
+     * ⚡ Cache 5 phút: tất cả trạm kèm dock + battery
+     */
+    @Cacheable("stations")
+    public List<Station> getAllActiveStations() {
+        System.out.println("⏳ Loading stations from DB...");
+        return stationRepository.findAllWithBatteryDetails();
+    }
+
+    /**
+     * 📍 Lấy toàn bộ trạm (dùng cache sẵn có)
+     */
     public List<StationResponseDTO> getAllStations() {
-        return stationRepository.findAll()
-                .stream().map(this::mapToDTO)
+        return getAllActiveStations().stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 📍 Lấy chi tiết trạm theo ID
+     */
     public StationResponseDTO getStationDetail(int id) {
-        Station station = stationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Station not found"));
-        return mapToDTO(station);
+        return getAllActiveStations().stream()
+                .filter(s -> s.getStationId() == id)
+                .findFirst()
+                .map(this::mapToDTO)
+                .orElseThrow(() -> new RuntimeException("Station not found: " + id));
     }
 
-
-// lay danh sach tram trong vung lân cận
+    /**
+     * 🔍 Lấy danh sách trạm trong bán kính radiusKm (km)
+     */
     public List<StationResponseDTO> getNearbyStations(double lat, double lng, double radiusKm) {
-        if (radiusKm <= 0) radiusKm = 50;
+        // ✅ 1. Dùng biến final riêng để tránh lỗi lambda
+        final double radius = (radiusKm <= 0) ? 50 : radiusKm;
 
-        // Gọi query từ repository
-        List<Object[]> results = stationRepository.findNearbyStations(lat, lng, radiusKm);
+        // ✅ 2. Lấy tất cả trạm từ cache (đã bao gồm battery, dock)
+        List<Station> allStations = getAllActiveStations();
 
-        // Danh sách kết quả
-        List<StationResponseDTO> nearby = new ArrayList<>();
-
-        // Duyệt từng dòng trả về từ SQL
-        for (Object[] row : results) {
-            Station s = new Station();
-            s.setStationId(((Number) row[0]).intValue());
-            s.setStationName((String) row[1]);
-            s.setAddress((String) row[2]);
-            s.setLatitude(new BigDecimal(String.valueOf(row[3])));
-            s.setLongitude(new BigDecimal(String.valueOf(row[4])));
-            s.setActive((Boolean) row[5]);   // chú ý: phải dùng setIsActive()
-
-            double distance = ((Number) row[6]).doubleValue();
-            StationResponseDTO dto = mapToDTO(s);
-            dto.setDistanceKm(distance);
-            nearby.add(dto);
-        }
-
-        return nearby;
+        // ✅ 3. Tính khoảng cách, lọc theo bán kính, sắp xếp tăng dần
+        return allStations.stream()
+                .map(st -> {
+                    double distance = GeoUtils.haversineKm(
+                            lat, lng,
+                            st.getLatitude().doubleValue(),
+                            st.getLongitude().doubleValue()
+                    );
+                    StationResponseDTO dto = mapToDTO(st);
+                    dto.setDistanceKm(distance);
+                    return dto;
+                })
+                .filter(dto -> dto.getDistanceKm() <= radius)  // sử dụng biến final radius
+                .sorted(Comparator.comparingDouble(StationResponseDTO::getDistanceKm))
+                .collect(Collectors.toList());
     }
-
 
     private StationResponseDTO mapToDTO(Station station) {
+
+        // ✅ Tổng hợp số lượng pin theo trạng thái
         Map<String, Long> batterySummary = Optional.ofNullable(station.getDocks())
-                .orElse(List.of())
+                .orElse(Collections.emptySet()) // dùng emptySet cho Set<>
                 .stream()
-                .flatMap(dock -> dock.getDockSlots().stream())
+                .flatMap(dock -> Optional.ofNullable(dock.getDockSlots())
+                        .orElse(Collections.emptySet())
+                        .stream())
                 .filter(slot -> slot.getBattery() != null)
                 .collect(Collectors.groupingBy(
                         slot -> slot.getBattery().getBatteryStatus().toString(),
                         Collectors.counting()
                 ));
 
+        // ✅ Tổng hợp số lượng pin theo loại
         Map<String, Long> batteryTypes = Optional.ofNullable(station.getDocks())
-                .orElse(List.of())
+                .orElse(Collections.emptySet())
                 .stream()
-                .flatMap(dock -> dock.getDockSlots().stream())
+                .flatMap(dock -> Optional.ofNullable(dock.getDockSlots())
+                        .orElse(Collections.emptySet())
+                        .stream())
                 .filter(slot -> slot.getBattery() != null && slot.getBattery().getBatteryType() != null)
                 .collect(Collectors.groupingBy(
                         slot -> slot.getBattery().getBatteryType().toString(),
@@ -89,7 +110,8 @@ public class StationService {
                 station.isActive(),
                 batterySummary,
                 batteryTypes,
-                null
+                null // distanceKm set ở chỗ khác
         );
     }
+
 }

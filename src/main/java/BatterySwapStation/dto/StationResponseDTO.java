@@ -23,4 +23,6 @@ public class StationResponseDTO {
 
     // ➕ Thêm khoảng cách
     private Double distanceKm;
+
+
 }

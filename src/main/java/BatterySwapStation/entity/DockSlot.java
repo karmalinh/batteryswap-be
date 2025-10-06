@@ -7,9 +7,12 @@ import lombok.*;
 
 @Entity
 @Table(name = "DockSlot")
-@Data
+@Getter
+@Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@ToString(exclude = {"dockSlot"})
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class DockSlot {
 
     @Id

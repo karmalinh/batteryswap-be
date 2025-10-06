@@ -31,8 +31,8 @@ public class StationController {
     public List<StationResponseDTO> getNearbyStations(
             @RequestParam double lat,
             @RequestParam double lng,
-            @RequestParam(defaultValue = "50") double radiusKm
-    ) {
+            @RequestParam(required = false, defaultValue = "50") double radiusKm) {
         return stationService.getNearbyStations(lat, lng, radiusKm);
     }
+
 }
