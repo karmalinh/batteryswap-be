@@ -38,11 +38,16 @@ public class VehicleService {
         Vehicle vehicle = getVehicleInfoByVin(vin);
         VehicleInfoResponse response = new VehicleInfoResponse();
         response.setVehicleId(vehicle.getVehicleId());
-        response.setVehicleType(vehicle.getVehicleType().toString());
-        response.setBatteryType(vehicle.getBatteryType().toString());
-        response.setActive(vehicle.isActive());
         response.setVin(vehicle.getVIN());
-        // Không còn dùng buyerPhone nữa
+        response.setOwnerName(vehicle.getUser() != null ? vehicle.getUser().getFullName() : null);
+        response.setVehicleType(vehicle.getVehicleType() != null ? vehicle.getVehicleType().toString() : null);
+        response.setBatteryType(vehicle.getBatteryType() != null ? vehicle.getBatteryType().toString() : null);
+        response.setBatteryCount(vehicle.getBatteryCount());
+        response.setPurchaseDate(vehicle.getPurchaseDate());
+        response.setManufactureYear(vehicle.getManufactureDate() != null ? vehicle.getManufactureDate().getYear() : 0);
+        response.setColor(vehicle.getColor());
+        response.setActive(vehicle.isActive());
+        response.setLicensePlate(vehicle.getLicensePlate());
         return response;
     }
 
