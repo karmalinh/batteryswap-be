@@ -41,6 +41,7 @@ public class VehicleService {
         // Thiết lập theo thứ tự UI
         response.setVin(vehicle.getVIN());
         response.setOwnerName(vehicle.getUser() != null ? vehicle.getUser().getFullName() : "Chưa có chủ");
+        response.setUserId(vehicle.getUser() != null ? vehicle.getUser().getUserId() : null); // Đã là String
         response.setVehicleType(vehicle.getVehicleType() != null ? vehicle.getVehicleType().toString() : null);
         response.setBatteryType(vehicle.getBatteryType() != null ? vehicle.getBatteryType().toString() : null);
         response.setBatteryCount(vehicle.getBatteryCount());

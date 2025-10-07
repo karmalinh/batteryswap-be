@@ -15,4 +15,13 @@ public class VehicleInfoResponse {
     private String color;
     private boolean active;
     private String licensePlate;
+    private String userId; // Đổi từ Integer thành String
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
 }
