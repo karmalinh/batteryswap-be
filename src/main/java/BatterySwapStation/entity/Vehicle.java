@@ -65,14 +65,6 @@ public class Vehicle {
     @Column(name = "ownername", length = 100)
     private String ownerName;
 
-    public String getOwnerName() {
-        return ownerName;
-    }
-
-    public void setOwnerName(String ownerName) {
-        this.ownerName = ownerName;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
