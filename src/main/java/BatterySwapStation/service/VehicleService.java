@@ -131,9 +131,15 @@ public class VehicleService {
 
     @Transactional(readOnly = true)
     public List<Vehicle> getActiveUserVehicles(String userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
-        return vehicleRepository.findByUserAndIsActiveTrue(user);
+         User user = userRepository.findById(userId)
+          .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+
+        // Tạm thời hardcode userId = "DR006" để test
+        //User user = userRepository.findById("DR006")
+          //      .orElseThrow(() -> new EntityNotFoundException("User not found with ID: DR006"));
+
+        // Sử dụng query với JOIN FETCH để lấy luôn thông tin User (owner)
+        return vehicleRepository.findByUserAndIsActiveTrueWithOwner(user);
     }
 
     @Transactional
