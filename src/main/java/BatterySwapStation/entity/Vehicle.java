@@ -56,6 +56,21 @@ public class Vehicle {
         return vehicleId > 0 && vehicleId == vehicle.vehicleId;
     }
 
+    @Column(name = "ManufactureDate")
+    private java.time.LocalDate manufactureDate;
+
+    @Column(name = "PurchaseDate")
+    private java.time.LocalDate purchaseDate;
+
+    @Column(name = "LicensePlate", length = 20)
+    private String licensePlate;
+
+    @Column(name = "Color", length = 30)
+    private String color;
+
+    @Column(name = "BatteryCount", nullable = false)
+    private int batteryCount = 1;
+
     @Override
     public int hashCode() {
         return getClass().hashCode();
