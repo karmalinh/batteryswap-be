@@ -36,23 +36,20 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints - không cần authentication
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        .anyRequest().permitAll()
 
                         // Vehicle endpoints - GET public, POST/PUT/DELETE cần auth
                         .requestMatchers("/api/v1/vehicles/{vin}").permitAll()
-                        .requestMatchers("/api/v1/vehicles/**").authenticated()
+                        .requestMatchers("/api/v1/vehicles/**").permitAll()
 
                         // Station endpoints - GET public
                         .requestMatchers("/api/v1/stations/**").permitAll()
 
                         // Booking và Payment cần authentication
-                        .requestMatchers("/api/v1/bookings/**").authenticated()
-                        .requestMatchers("/api/v1/payments/**").authenticated()
+                        .requestMatchers("/api/v1/bookings/**").permitAll()
+                        .requestMatchers("/api/v1/payments/**").permitAll()
 
-                        // Các request khác cần authentication
-                        .anyRequest().authenticated()
+                        // Các request khác đều cho phép truy cập
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
