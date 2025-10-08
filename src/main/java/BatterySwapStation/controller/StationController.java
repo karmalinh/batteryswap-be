@@ -34,20 +34,5 @@ public class StationController {
         return stationService.getNearbyStations(lat, lng, radiusKm);
     }
 
-    // /api/stations/search?batteryType=LFP&minTotal=3&minAvailable=1
-    @GetMapping("/search")
-    public List<StationResponseDTO> searchByBattery(
-            @RequestParam(required = false) String batteryType,
-            @RequestParam(defaultValue = "0") int minTotal,
-            @RequestParam(defaultValue = "0") int minAvailable) {
-        return stationService.searchByBattery(batteryType, minTotal, minAvailable);
-    }
 
-    // /api/stations/by-area?district=Quận%201&city=TP.HCM
-    @GetMapping("/by-area")
-    public List<StationResponseDTO> searchByArea(
-            @RequestParam(required = false) String district,
-            @RequestParam(required = false) String city) {
-        return stationService.searchByArea(district, city);
-    }
 }

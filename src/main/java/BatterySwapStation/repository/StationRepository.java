@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface StationRepository extends JpaRepository<Station, Integer> {
 
-    // ✅ Tổng hợp pin đầy / sạc / tổng cho từng trạm
+    // Tổng hợp pin đầy / sạc / tổng cho từng trạm
     @Query("""
         SELECT s.stationId,
                s.stationName,
@@ -30,7 +30,7 @@ public interface StationRepository extends JpaRepository<Station, Integer> {
         """)
     List<Object[]> getStationSummary();
 
-    // ✅ Đếm pin theo loại (per batteryType)
+    //  Đếm pin theo loại (per batteryType)
     @Query("""
         SELECT s.stationId, b.batteryType,
                SUM(CASE WHEN b.batteryStatus = 'AVAILABLE' THEN 1 ELSE 0 END),
@@ -44,35 +44,5 @@ public interface StationRepository extends JpaRepository<Station, Integer> {
         """)
     List<Object[]> getStationBatteryTypes();
 
-    // ✅ Lọc theo loại pin và ngưỡng số lượng
-    @Query("""
-        SELECT s.stationId
-        FROM Station s
-        LEFT JOIN s.docks d ON d.isActive = TRUE
-        LEFT JOIN d.dockSlots ds ON ds.isActive = TRUE
-        LEFT JOIN ds.battery b
-        WHERE s.isActive = TRUE
-          AND (:batteryType IS NULL OR b.batteryType = :batteryType)
-        GROUP BY s.stationId
-        HAVING SUM(CASE WHEN b.batteryStatus IN ('AVAILABLE','CHARGING') THEN 1 ELSE 0 END) >= :minTotal
-           AND SUM(CASE WHEN b.batteryStatus = 'AVAILABLE' THEN 1 ELSE 0 END) >= :minAvailable
-        """)
-    List<Integer> filterByBattery(
-            @Param("batteryType") String batteryType,
-            @Param("minTotal") int minTotal,
-            @Param("minAvailable") int minAvailable
-    );
 
-    // ✅ Lọc theo địa chỉ (quận / thành phố)
-    @Query("""
-        SELECT s.stationId
-        FROM Station s
-        WHERE s.isActive = TRUE
-          AND (:district IS NULL OR LOWER(s.address) LIKE LOWER(CONCAT('%', :district, '%')))
-          AND (:city IS NULL OR LOWER(s.address) LIKE LOWER(CONCAT('%', :city, '%')))
-        """)
-    List<Integer> filterByArea(
-            @Param("district") String district,
-            @Param("city") String city
-    );
 }

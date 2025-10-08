@@ -85,21 +85,5 @@ public class StationService {
                 .toList();
     }
 
-    // ⚡ Lọc theo loại pin
-    public List<StationResponseDTO> searchByBattery(String batteryType, int minTotal, int minAvailable) {
-        List<Integer> ids = stationRepository.filterByBattery(batteryType, minTotal, minAvailable);
-        Set<Integer> set = new HashSet<>(ids);
-        return getAllStations().stream()
-                .filter(s -> set.contains(s.getStationId()))
-                .toList();
-    }
 
-    // ⚡ Lọc theo quận / thành phố
-    public List<StationResponseDTO> searchByArea(String district, String city) {
-        List<Integer> ids = stationRepository.filterByArea(district, city);
-        Set<Integer> set = new HashSet<>(ids);
-        return getAllStations().stream()
-                .filter(s -> set.contains(s.getStationId()))
-                .toList();
-    }
 }
