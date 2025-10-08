@@ -1,10 +1,12 @@
 package BatterySwapStation.service;
 
 import BatterySwapStation.dto.StationResponseDTO;
+import BatterySwapStation.entity.Vehicle;
 import BatterySwapStation.repository.StationRepository;
 import BatterySwapStation.utils.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 public class StationService {
 
     private final StationRepository stationRepository;
+    private final VehicleService vehicleService; // 👈 thêm inject service này để lấy loại pin user
 
     // ⚡ Lấy toàn bộ trạm với tổng hợp nhanh
     public List<StationResponseDTO> getAllStations() {
@@ -43,9 +46,8 @@ public class StationService {
                                     ((Number) Optional.ofNullable(o[2]).orElse(0)).intValue(),
                                     ((Number) Optional.ofNullable(o[3]).orElse(0)).intValue()
                             ))
-                            .filter(bt -> bt.getTotal() > 0) // ⚡ bỏ luôn loại pin không có gì
+                            .filter(bt -> bt.getTotal() > 0)
                             .toList();
-
 
             result.add(StationResponseDTO.builder()
                     .stationId(id)
@@ -63,6 +65,7 @@ public class StationService {
         return result;
     }
 
+    // ⚡ Lấy chi tiết 1 trạm
     public StationResponseDTO getStationDetail(int id) {
         return getAllStations().stream()
                 .filter(s -> Objects.equals(s.getStationId(), id))
@@ -70,7 +73,7 @@ public class StationService {
                 .orElseThrow(() -> new RuntimeException("Station not found: " + id));
     }
 
-    // ⚡ API /nearby
+    // ⚡ API /nearby – lọc trong bán kính, không sort theo khoảng cách
     public List<StationResponseDTO> getNearbyStations(double lat, double lng, double radiusKm) {
         final double radius = radiusKm <= 0 ? 50 : radiusKm;
         return getAllStations().stream()
@@ -85,5 +88,45 @@ public class StationService {
                 .toList();
     }
 
+    // ⚡ API /stations/user – Ưu tiên trạm có loại pin trùng với xe user
+    public List<StationResponseDTO> getAllStationsPrioritizedByUserBattery(String userId) {
+        List<StationResponseDTO> stations = getAllStations();
 
+        // 🔹 Lấy danh sách loại pin mà user đang sở hữu
+        Set<Vehicle.BatteryType> userBatteryTypes = vehicleService.getActiveUserVehicles(userId).stream()
+                .filter(Vehicle::isActive)
+                .map(Vehicle::getBatteryType)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (userBatteryTypes.isEmpty()) {
+            // Nếu user chưa có xe, trả về danh sách gốc
+            return stations;
+        }
+
+        // 🔹 Sort: trạm có pin trùng loại user lên đầu
+        stations.sort((s1, s2) -> {
+            boolean s1Match = hasMatchingBatteryType(s1, userBatteryTypes);
+            boolean s2Match = hasMatchingBatteryType(s2, userBatteryTypes);
+            return Boolean.compare(s2Match, s1Match); // true trước (match > non-match)
+        });
+
+        return stations;
+    }
+
+    // ✅ Helper: kiểm tra trạm có loại pin trùng với user không
+    private boolean hasMatchingBatteryType(StationResponseDTO station, Set<Vehicle.BatteryType> userBatteryTypes) {
+        if (station.getBatteries() == null || station.getBatteries().isEmpty()) return false;
+        for (StationResponseDTO.BatteryTypeRow bt : station.getBatteries()) {
+            try {
+                Vehicle.BatteryType type = Vehicle.BatteryType.valueOf(bt.getBatteryType());
+                if (userBatteryTypes.contains(type)) {
+                    return true;
+                }
+            } catch (IllegalArgumentException ignored) {
+                // bỏ qua nếu enum không hợp lệ
+            }
+        }
+        return false;
+    }
 }
