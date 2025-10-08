@@ -70,9 +70,4 @@ public class Vehicle {
         Vehicle vehicle = (Vehicle) o;
         return vehicleId > 0 && vehicleId == vehicle.vehicleId;
     }
-
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
 }

@@ -2,6 +2,8 @@ package BatterySwapStation.dto;
 
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 public class VehicleInfoResponse {
     private int vehicleId;
@@ -10,18 +12,10 @@ public class VehicleInfoResponse {
     private String vehicleType;
     private String batteryType;
     private int batteryCount;
-    private java.time.LocalDate purchaseDate;
+    private LocalDate purchaseDate;
     private int manufactureYear;
     private String color;
     private boolean active;
     private String licensePlate;
-    private String userId; // Đổi từ Integer thành String
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
+    private String userId;
 }

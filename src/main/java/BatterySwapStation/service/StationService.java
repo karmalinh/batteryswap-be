@@ -1,14 +1,10 @@
 package BatterySwapStation.service;
 
 import BatterySwapStation.dto.StationResponseDTO;
-import BatterySwapStation.entity.Battery;
-import BatterySwapStation.entity.Dock;
-import BatterySwapStation.entity.DockSlot;
-import BatterySwapStation.entity.Station;
+import BatterySwapStation.entity.Vehicle;
 import BatterySwapStation.repository.StationRepository;
 import BatterySwapStation.utils.GeoUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -19,114 +15,118 @@ import java.util.stream.Collectors;
 public class StationService {
 
     private final StationRepository stationRepository;
+    private final VehicleService vehicleService; // 👈 thêm inject service này để lấy loại pin user
 
-    /**
-     * ⚡ Cache 5 phút: tất cả trạm kèm dock + battery
-     */
-    @Cacheable("stations")
-    public List<Station> getAllActiveStations() {
-        System.out.println("⏳ Loading stations from DB...");
-        return stationRepository.findAllWithBatteryDetails();
-    }
-
-    /**
-     * 📍 Lấy toàn bộ trạm (dùng cache sẵn có)
-     */
+    // ⚡ Lấy toàn bộ trạm với tổng hợp nhanh
     public List<StationResponseDTO> getAllStations() {
-        return getAllActiveStations().stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        List<Object[]> main = stationRepository.getStationSummary();
+        Map<Integer, List<Object[]>> typeMap = stationRepository.getStationBatteryTypes()
+                .stream()
+                .collect(Collectors.groupingBy(o -> (Integer) o[0]));
+
+        List<StationResponseDTO> result = new ArrayList<>();
+
+        for (Object[] row : main) {
+            Integer id = (Integer) row[0];
+            String name = (String) row[1];
+            String address = (String) row[2];
+            var lat = (java.math.BigDecimal) row[3];
+            var lon = (java.math.BigDecimal) row[4];
+            boolean isActive = (boolean) row[5];
+            int available = ((Number) Optional.ofNullable(row[6]).orElse(0)).intValue();
+            int charging = ((Number) Optional.ofNullable(row[7]).orElse(0)).intValue();
+            int total = ((Number) Optional.ofNullable(row[8]).orElse(0)).intValue();
+
+            // nhóm theo loại pin
+            List<StationResponseDTO.BatteryTypeRow> batteryRows =
+                    typeMap.getOrDefault(id, List.of()).stream()
+                            .filter(o -> o[1] != null)
+                            .map(o -> new StationResponseDTO.BatteryTypeRow(
+                                    String.valueOf(o[1]),
+                                    ((Number) Optional.ofNullable(o[2]).orElse(0)).intValue(),
+                                    ((Number) Optional.ofNullable(o[3]).orElse(0)).intValue()
+                            ))
+                            .filter(bt -> bt.getTotal() > 0)
+                            .toList();
+
+            result.add(StationResponseDTO.builder()
+                    .stationId(id)
+                    .stationName(name)
+                    .address(address)
+                    .latitude(lat)
+                    .longitude(lon)
+                    .isActive(isActive)
+                    .availableCount(available)
+                    .chargingCount(charging)
+                    .totalBatteries(total)
+                    .batteries(batteryRows)
+                    .build());
+        }
+        return result;
     }
 
-    /**
-     * 📍 Lấy chi tiết trạm theo ID
-     */
+    // ⚡ Lấy chi tiết 1 trạm
     public StationResponseDTO getStationDetail(int id) {
-        return getAllActiveStations().stream()
-                .filter(s -> s.getStationId() == id)
+        return getAllStations().stream()
+                .filter(s -> Objects.equals(s.getStationId(), id))
                 .findFirst()
-                .map(this::mapToDTO)
                 .orElseThrow(() -> new RuntimeException("Station not found: " + id));
     }
 
-    /**
-     * 🔍 Lấy danh sách trạm trong bán kính radiusKm (km)
-     */
+    // ⚡ API /nearby – lọc trong bán kính, không sort theo khoảng cách
     public List<StationResponseDTO> getNearbyStations(double lat, double lng, double radiusKm) {
-        // ✅ 1. Dùng biến final riêng để tránh lỗi lambda
-        final double radius = (radiusKm <= 0) ? 50 : radiusKm;
-
-        // ✅ 2. Lấy tất cả trạm từ cache (đã bao gồm battery, dock)
-        List<Station> allStations = getAllActiveStations();
-
-        // ✅ 3. Tính khoảng cách, lọc theo bán kính, sắp xếp tăng dần
-        return allStations.stream()
-                .map(st -> {
+        final double radius = radiusKm <= 0 ? 50 : radiusKm;
+        return getAllStations().stream()
+                .filter(st -> {
                     double distance = GeoUtils.haversineKm(
                             lat, lng,
                             st.getLatitude().doubleValue(),
                             st.getLongitude().doubleValue()
                     );
-                    StationResponseDTO dto = mapToDTO(st);
-                    dto.setDistanceKm(distance);
-                    return dto;
+                    return distance <= radius;
                 })
-                .filter(dto -> dto.getDistanceKm() <= radius)  // sử dụng biến final radius
-                .sorted(Comparator.comparingDouble(StationResponseDTO::getDistanceKm))
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    private StationResponseDTO mapToDTO(Station station) {
-        Set<String> seen = new HashSet<>();
+    // ⚡ API /stations/user – Ưu tiên trạm có loại pin trùng với xe user
+    public List<StationResponseDTO> getAllStationsPrioritizedByUserBattery(String userId) {
+        List<StationResponseDTO> stations = getAllStations();
 
-        // ⚠️ bỏ .filter(Battery::isActive) để vẫn đếm được DAMAGED
-        List<Battery> bats = Optional.ofNullable(station.getDocks())
-                .orElseGet(Collections::emptySet)
-                .stream()
+        // 🔹 Lấy danh sách loại pin mà user đang sở hữu
+        Set<Vehicle.BatteryType> userBatteryTypes = vehicleService.getActiveUserVehicles(userId).stream()
+                .filter(Vehicle::isActive)
+                .map(Vehicle::getBatteryType)
                 .filter(Objects::nonNull)
-                .filter(Dock::isActive)                    // giữ lọc dock active
-                .flatMap(d -> Optional.ofNullable(d.getDockSlots())
-                        .orElseGet(Collections::emptySet).stream())
-                .filter(Objects::nonNull)
-                .filter(DockSlot::isActive)                // giữ lọc slot active
-                .map(DockSlot::getBattery)
-                .filter(Objects::nonNull)
-                .filter(b -> b.getBatteryId()!=null && seen.add(b.getBatteryId())) // khử trùng
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
-        // ✅ Summary: chỉ 3 trạng thái, bỏ IN_USE
-        Map<String, Long> batterySummary = bats.stream()
-                .filter(b -> b.getBatteryStatus()!=null)
-                .filter(b -> b.getBatteryStatus()==Battery.BatteryStatus.AVAILABLE
-                        || b.getBatteryStatus()==Battery.BatteryStatus.CHARGING
-                        || b.getBatteryStatus()==Battery.BatteryStatus.DAMAGED)
-                .collect(Collectors.groupingBy(
-                        b -> b.getBatteryStatus().name(),
-                        LinkedHashMap::new,
-                        Collectors.counting()
-                ));
+        if (userBatteryTypes.isEmpty()) {
+            // Nếu user chưa có xe, trả về danh sách gốc
+            return stations;
+        }
 
-        // ✅ Types: chỉ đếm loại pin có thể dùng (AVAILABLE + CHARGING)
-        Map<String, Long> batteryTypes = bats.stream()
-                .filter(b -> b.getBatteryStatus()==Battery.BatteryStatus.AVAILABLE
-                        || b.getBatteryStatus()==Battery.BatteryStatus.CHARGING)
-                .filter(b -> b.getBatteryType()!=null)
-                .collect(Collectors.groupingBy(
-                        b -> b.getBatteryType().name(),
-                        LinkedHashMap::new,
-                        Collectors.counting()
-                ));
+        // 🔹 Sort: trạm có pin trùng loại user lên đầu
+        stations.sort((s1, s2) -> {
+            boolean s1Match = hasMatchingBatteryType(s1, userBatteryTypes);
+            boolean s2Match = hasMatchingBatteryType(s2, userBatteryTypes);
+            return Boolean.compare(s2Match, s1Match); // true trước (match > non-match)
+        });
 
-        return new StationResponseDTO(
-                station.getStationId(),
-                station.getStationName(),
-                station.getAddress(),
-                station.getLatitude(),
-                station.getLongitude(),
-                station.isActive(),
-                batterySummary,
-                batteryTypes,
-                null
-        );
+        return stations;
+    }
+
+    // ✅ Helper: kiểm tra trạm có loại pin trùng với user không
+    private boolean hasMatchingBatteryType(StationResponseDTO station, Set<Vehicle.BatteryType> userBatteryTypes) {
+        if (station.getBatteries() == null || station.getBatteries().isEmpty()) return false;
+        for (StationResponseDTO.BatteryTypeRow bt : station.getBatteries()) {
+            try {
+                Vehicle.BatteryType type = Vehicle.BatteryType.valueOf(bt.getBatteryType());
+                if (userBatteryTypes.contains(type)) {
+                    return true;
+                }
+            } catch (IllegalArgumentException ignored) {
+                // bỏ qua nếu enum không hợp lệ
+            }
+        }
+        return false;
     }
 }
