@@ -41,7 +41,8 @@ public class Booking {
     private BookingStatus bookingStatus = BookingStatus.PENDING;
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<BookingBatteryItem> batteryItems;
+    private List<BookingVehicleItem> vehicleItems;
+
 
     @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private Payment payment;
@@ -52,10 +53,6 @@ public class Booking {
         CANCELLED,
         COMPLETED
     }
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "VehicleId")
-    private Vehicle vehicle;
 
 
     @Column(name = "CycleCount")

@@ -4,13 +4,13 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "BookingBatteryItem")
+@Table(name = "BookingVehicleItem")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class BookingBatteryItem {
+public class BookingVehicleItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,19 +21,17 @@ public class BookingBatteryItem {
     @JoinColumn(name = "BookingId", nullable = false)
     private Booking booking;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "VehicleId", nullable = false)
+    private Vehicle vehicle;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "BatteryType", nullable = false, length = 50)
-    private BatteryType batteryType;
+    private Battery.BatteryType batteryType;
 
     @Column(name = "Quantity", nullable = false)
-    private int quantity;
+    private int quantity = 1;
 
     @Column(name = "PricePerUnit", nullable = false)
     private double pricePerUnit;
-
-    public enum BatteryType {
-        LITHIUM_ION,
-        NICKEL_METAL_HYDRIDE,
-        LEAD_ACID
-    }
 }
