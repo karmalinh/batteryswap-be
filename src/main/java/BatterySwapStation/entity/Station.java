@@ -43,4 +43,9 @@ public class Station {
     @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
     private Set<Dock> docks = new HashSet<>();
+
+    // 1 Station có nhiều Booking
+    @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<Booking> bookings = new HashSet<>();
+
 }

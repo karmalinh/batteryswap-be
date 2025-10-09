@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "Battery")
 @Getter
@@ -48,4 +50,17 @@ public class Battery {
         CHARGING,
         DAMAGED
     }
+
+    @Column(name = "CycleCount")
+    private Integer cycleCount; // số chu kỳ sạc xả
+
+    @Column(name = "StateOfHealth")
+    private Double stateOfHealth; // phần trăm SoH
+
+    @Column(name = "ManufactureDate")
+    private LocalDate manufactureDate;
+
+    @Column(name = "ExpiryDate")
+    private LocalDate expiryDate;
+
 }
