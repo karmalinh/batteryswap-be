@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.List;
-
 @Entity
 @Table(name = "Vehicle", indexes = {
         @Index(name = "idx_vehicle_vin", columnList = "VIN", unique = true)
@@ -66,9 +64,6 @@ public class Vehicle {
 
     @Column(name = "ownername", length = 100)
     private String ownerName;
-
-    @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<BookingVehicleItem> bookingVehicleItems;
 
     @Override
     public boolean equals(Object o) {

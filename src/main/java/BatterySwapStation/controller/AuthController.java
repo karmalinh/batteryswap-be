@@ -25,17 +25,33 @@ public class AuthController {
 
     private final UserService userService;
     private final AuthService authService;
+    private final EmailVerificationService emailVerificationService;
+    private final EmailService emailService;
+
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
         User user = userService.registerUser(req);
+
+        // ✅ Tạo token và gửi email xác thực
+        String token = emailVerificationService.createVerificationToken(user);
+        String verifyUrl = "http://localhost:5173/verify-email?token=" + token;
+
+        emailService.send(
+                user.getEmail(),
+                "Xác thực tài khoản BatterySwapStation",
+                "Chào " + user.getFullName() + ",\n\nHãy xác thực tài khoản của bạn tại liên kết sau: " + verifyUrl
+        );
+
+
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(Map.of(
-                        "message", "Đăng ký thành công",
+                        "message", "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
                         "userId", user.getUserId()
                 ));
     }
+
 
 
     @PostMapping("/login")
@@ -71,6 +87,11 @@ public class AuthController {
     }
 
 
+    @GetMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
+        String result = emailVerificationService.verifyEmail(token);
+        return ResponseEntity.ok().body(result);
+    }
 
 
 }

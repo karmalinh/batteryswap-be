@@ -82,6 +82,9 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Booking> bookings = new ArrayList<>();
 
+    @Column(name = "IsVerified", nullable = false, columnDefinition = "boolean default false")
+    private boolean isVerified = false;
+
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
