@@ -62,6 +62,7 @@ public class AuthService {
                 "Đăng nhập thành công",
                 user.getUserId(),
                 user.getEmail(),
+                user.getFullName(),
                 user.getPhone(),
                 user.getRole().getRoleName(),
                 token
