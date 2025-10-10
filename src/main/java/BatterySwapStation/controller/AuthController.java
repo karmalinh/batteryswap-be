@@ -89,9 +89,30 @@ public class AuthController {
 
     @GetMapping("/verify-email")
     public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
-        String result = emailVerificationService.verifyEmail(token);
-        return ResponseEntity.ok().body(result);
+        try {
+            String result = emailVerificationService.verifyEmail(token);
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "success", true,
+                    "message", result
+            ));
+        } catch (RuntimeException ex) {
+            // ✅ Bắt lỗi từ EmailVerificationService
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "status", 400,
+                    "success", false,
+                    "message", ex.getMessage()
+            ));
+        } catch (Exception ex) {
+            // ✅ Lỗi bất ngờ
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "status", 500,
+                    "success", false,
+                    "message", "Đã xảy ra lỗi khi xác thực email. Vui lòng thử lại sau."
+            ));
+        }
     }
+
 
 
 }

@@ -31,22 +31,28 @@ public class EmailVerificationService {
 
     public String verifyEmail(String token) {
         var verification = tokenRepo.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Token không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Liên kết xác thực không hợp lệ hoặc không tồn tại."));
 
         if (verification.isUsed()) {
-            throw new RuntimeException("Token đã được sử dụng");
+            throw new RuntimeException("Liên kết này đã được sử dụng để xác thực.");
         }
+
         if (verification.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Token đã hết hạn");
+            throw new RuntimeException("Liên kết xác thực đã hết hạn. Vui lòng đăng ký lại.");
         }
 
         User user = verification.getUser();
+        if (user.isVerified()) {
+            throw new RuntimeException("Tài khoản này đã được xác thực trước đó.");
+        }
+
         user.setVerified(true);
         userRepo.save(user);
 
         verification.setUsed(true);
         tokenRepo.save(verification);
 
-        return "Xác thực email thành công!";
+        return "Xác thực email thành công! LOGIN THOI YAHOO";
     }
+
 }
