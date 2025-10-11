@@ -54,7 +54,7 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
-                "https://batteryswap-be-production.up.railway.app"
+                "https://batteryswap.up.railway.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
