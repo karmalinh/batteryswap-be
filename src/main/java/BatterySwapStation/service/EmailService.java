@@ -1,82 +1,67 @@
 package BatterySwapStation.service;
 
-import com.google.api.services.gmail.Gmail;
-import com.google.api.services.gmail.model.Message;
-import jakarta.mail.Session;
-import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Properties;
 
 @Service
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final Gmail gmail;
+    private final JavaMailSender mailSender;
 
-    // 🟢 Địa chỉ Gmail dùng để gửi (chính là Gmail bạn cấp refresh token)
-    @Value("${GMAIL_USER}")
-    private String gmailUser;
+    private final String fromEmail = "batteryswapstation36@gmail.com";
 
-
-    public void sendVerificationEmail(String fullName, String email, String verifyUrl) {
-        String html = """
-                <html>
-                    <body style='font-family:Arial, sans-serif;'>
-                        <h2>Xin chào, %s!</h2>
-                        <p>Cảm ơn bạn đã đăng ký tài khoản <b>Battery Swap Station</b>.</p>
-                        <p>Nhấn vào nút dưới đây để xác thực email của bạn:</p>
-                        <a href='%s'
-                           style='display:inline-block;padding:10px 20px;
-                                  background-color:#4CAF50;color:white;
-                                  text-decoration:none;border-radius:5px;'>
-                           Xác thực tài khoản
-                        </a>
-                        <br><br>
-                        <p>Nếu bạn không yêu cầu đăng ký, vui lòng bỏ qua email này.</p>
-                        <hr>
-                        <small>Đây là email tự động, vui lòng không trả lời.</small>
-                    </body>
-                </html>
-                """.formatted(fullName, verifyUrl);
-
-        sendViaGmailApi(email, "Xác minh tài khoản Battery Swap Station", html);
+    // ✅ Gửi email text đơn giản (ít dùng)
+    public void send(String to, String subject, String text) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(text);
+        mailSender.send(message);
     }
 
-    private void sendViaGmailApi(String to, String subject, String htmlContent) {
+    // ✅ Gửi email HTML xác thực tài khoản
+    public void sendVerificationEmail(String fullName, String email, String verifyUrl) {
         try {
-            // 🔹 Chuẩn bị session
-            Properties props = new Properties();
-            Session session = Session.getInstance(props, null);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            // 🔹 Tạo nội dung email
-            MimeMessage mime = new MimeMessage(session);
-            mime.setFrom(new InternetAddress(gmailUser, "Battery Swap Station", StandardCharsets.UTF_8.name()));
-            mime.addRecipient(jakarta.mail.Message.RecipientType.TO, new InternetAddress(to));
-            mime.setSubject(subject, StandardCharsets.UTF_8.name());
-            mime.setContent(htmlContent, "text/html; charset=UTF-8");
+            helper.setFrom(fromEmail, "Battery Swap Station");
+            helper.setTo(email);
+            helper.setSubject("Xác minh tài khoản Battery Swap Station");
 
-            // 🔹 Encode email theo định dạng Gmail yêu cầu
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            mime.writeTo(buffer);
-            String encodedEmail = Base64.getUrlEncoder().withoutPadding().encodeToString(buffer.toByteArray());
+            String html = """
+                    <html>
+                    <body style="font-family: Arial, sans-serif; background-color:#f8f9fa; padding:20px;">
+                        <div style="max-width:600px; margin:auto; background:white; border-radius:10px; padding:20px;">
+                            <h2>Xin chào %s,</h2>
+                            <p>Cảm ơn bạn đã đăng ký tài khoản tại <b>Battery Swap Station</b>.</p>
+                            <p>Vui lòng nhấn vào nút bên dưới để xác minh email của bạn:</p>
+                            <div style="text-align:center; margin:30px;">
+                                <a href="%s" style="background-color:#28a745; color:white; padding:12px 24px;
+                                text-decoration:none; border-radius:6px;">Xác minh ngay</a>
+                            </div>
+                            <p>Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.</p>
+                            <hr>
+                            <p style="font-size:12px; color:gray;">© 2025 Battery Swap Station Team</p>
+                        </div>
+                    </body>
+                    </html>
+                    """.formatted(fullName, verifyUrl);
 
-            // 🔹 Gửi qua Gmail API
-            Message message = new Message();
-            message.setRaw(encodedEmail);
-            gmail.users().messages().send("me", message).execute();
+            helper.setText(html, true);
+            mailSender.send(message);
 
-            System.out.println("✅ Email đã gửi đến: " + to);
-
+        } catch (MessagingException e) {
+            throw new RuntimeException("Không thể gửi email xác minh: " + e.getMessage(), e);
         } catch (Exception e) {
-            System.err.println("❌ Gửi email thất bại: " + e.getMessage());
-            throw new RuntimeException("Gửi email thất bại: " + e.getMessage(), e);
+            throw new RuntimeException("Lỗi khi gửi email: " + e.getMessage(), e);
         }
     }
 }
