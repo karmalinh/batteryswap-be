@@ -1,0 +1,11 @@
+[33mcommit 62ca018b019dcfb0df1a265c6b9b8e1a845ed087[m
+Author: karmalinh <karmalinh0201@gmail.com>
+Date:   Sat Oct 11 08:49:46 2025 +0100
+
+    Remove Google OAuth secret file
+
+[33mcommit 844f07d9bfb228fba86a897f07ebc0f01ff624af[m
+Author: karmalinh <karmalinh0201@gmail.com>
+Date:   Sat Oct 11 08:47:12 2025 +0100
+
+    update api verify 6
