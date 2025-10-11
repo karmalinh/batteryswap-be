@@ -45,8 +45,9 @@ public class User implements UserDetails {
     private boolean isActive;
 
     @CreationTimestamp
-    @Column(name = "CreateAt", nullable = false)
+    @Column(name = "CreateAt", nullable = false, updatable = false)
     private LocalDateTime createAt;
+
 
     @UpdateTimestamp
     @Column(name = "UpdateAt", nullable = false)

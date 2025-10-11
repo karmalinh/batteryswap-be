@@ -39,7 +39,7 @@ public class AuthController {
 
         emailService.send(
                 user.getEmail(),
-                "Xác thực tài khoản BatterySwapStation",
+                "Xác thực tài khoản Battery Swap Station",
                 "Chào " + user.getFullName() + ",\n\nHãy xác thực tài khoản của bạn tại liên kết sau: " + verifyUrl
         );
 
