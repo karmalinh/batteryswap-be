@@ -25,18 +25,21 @@ public class GmailApiConfig {
         var transport = GoogleNetHttpTransport.newTrustedTransport();
         var jsonFactory = JacksonFactory.getDefaultInstance();
 
-        GoogleCredential cred = new GoogleCredential.Builder()
+        GoogleCredential credential = new GoogleCredential.Builder()
                 .setClientSecrets(clientId, clientSecret)
                 .setTransport(transport)
                 .setJsonFactory(jsonFactory)
                 .build()
                 .setRefreshToken(refreshToken);
 
-        // Lấy access token mới từ refresh token (server-side)
-        cred.refreshToken();
+        if (!credential.refreshToken()) {
+            throw new IllegalStateException("❌ Refresh token không hợp lệ hoặc đã hết hạn. Kiểm tra biến môi trường trên Railway!");
+        }
 
-        return new Gmail.Builder(transport, jsonFactory, cred)
-                .setApplicationName("batteryswap")
+        System.out.println("✅ Gmail API đã khởi tạo thành công trên server.");
+
+        return new Gmail.Builder(transport, jsonFactory, credential)
+                .setApplicationName("BatterySwapStation")
                 .build();
     }
 }
