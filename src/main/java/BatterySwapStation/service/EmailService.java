@@ -1,67 +1,80 @@
 package BatterySwapStation.service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
+import com.sendgrid.*;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
 import lombok.RequiredArgsConstructor;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Value("${SENDGRID_API_KEY}")
+    private String sendGridApiKey;
 
-    private final String fromEmail = "batteryswapstation36@gmail.com";
+    @Value("${SPRING_MAIL_FROM}")
+    private String fromEmail;
 
-    // ✅ Gửi email text đơn giản (ít dùng)
+    // 📩 Gửi email thuần text
     public void send(String to, String subject, String text) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
-        mailSender.send(message);
+        Email from = new Email(fromEmail);
+        Email recipient = new Email(to);
+        Content content = new Content("text/plain", text);
+        Mail mail = new Mail(from, subject, recipient, content);
+        sendMail(mail);
     }
 
-    // ✅ Gửi email HTML xác thực tài khoản
+    // 📩 Gửi email xác minh tài khoản
     public void sendVerificationEmail(String fullName, String email, String verifyUrl) {
+        String htmlContent = getHtmlTemplate(fullName, verifyUrl);
+
+        Email from = new Email(fromEmail);
+        Email recipient = new Email(email);
+        Content content = new Content("text/html", htmlContent);
+        Mail mail = new Mail(from, "Xác minh tài khoản Battery Swap Station", recipient, content);
+
+        sendMail(mail);
+    }
+
+    // ✅ Hàm thực thi gửi email qua SendGrid
+    private void sendMail(Mail mail) {
+        SendGrid sg = new SendGrid(sendGridApiKey);
+        Request request = new Request();
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(fromEmail, "Battery Swap Station");
-            helper.setTo(email);
-            helper.setSubject("Xác minh tài khoản Battery Swap Station");
-
-            String html = """
-                    <html>
-                    <body style="font-family: Arial, sans-serif; background-color:#f8f9fa; padding:20px;">
-                        <div style="max-width:600px; margin:auto; background:white; border-radius:10px; padding:20px;">
-                            <h2>Xin chào %s,</h2>
-                            <p>Cảm ơn bạn đã đăng ký tài khoản tại <b>Battery Swap Station</b>.</p>
-                            <p>Vui lòng nhấn vào nút bên dưới để xác minh email của bạn:</p>
-                            <div style="text-align:center; margin:30px;">
-                                <a href="%s" style="background-color:#28a745; color:white; padding:12px 24px;
-                                text-decoration:none; border-radius:6px;">Xác minh ngay</a>
-                            </div>
-                            <p>Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.</p>
-                            <hr>
-                            <p style="font-size:12px; color:gray;">© 2025 Battery Swap Station Team</p>
-                        </div>
-                    </body>
-                    </html>
-                    """.formatted(fullName, verifyUrl);
-
-            helper.setText(html, true);
-            mailSender.send(message);
-
-        } catch (MessagingException e) {
-            throw new RuntimeException("Không thể gửi email xác minh: " + e.getMessage(), e);
-        } catch (Exception e) {
-            throw new RuntimeException("Lỗi khi gửi email: " + e.getMessage(), e);
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+            Response response = sg.api(request);
+            System.out.println("📧 SendGrid Response Code: " + response.getStatusCode());
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi khi gửi email qua SendGrid: " + e.getMessage(), e);
         }
+    }
+
+    // 🎨 HTML Template
+    private String getHtmlTemplate(String fullName, String verifyUrl) {
+        return """
+                <div style="font-family:Arial,sans-serif;line-height:1.6">
+                    <h2 style="color:#007bff;">Xin chào, %s 👋</h2>
+                    <p>Cảm ơn bạn đã đăng ký tài khoản tại <b>Battery Swap Station</b>.</p>
+                    <p>Vui lòng nhấp vào nút bên dưới để xác minh email của bạn:</p>
+                    <p>
+                        <a href="%s" style="background-color:#28a745;color:white;
+                            padding:10px 20px;text-decoration:none;border-radius:5px;">
+                            Xác minh ngay
+                        </a>
+                    </p>
+                    <p>Nếu bạn không đăng ký tài khoản này, vui lòng bỏ qua email này.</p>
+                    <hr>
+                    <p style="font-size:12px;color:gray;">
+                        © 2025 Battery Swap Station Team
+                    </p>
+                </div>
+                """.formatted(fullName, verifyUrl);
     }
 }
