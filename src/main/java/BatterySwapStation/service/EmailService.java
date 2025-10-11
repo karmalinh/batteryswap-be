@@ -20,6 +20,7 @@ public class EmailService {
 
     private final Gmail gmail;
 
+
     @Value("${gmail.user}")
     private String gmailUser;
 
