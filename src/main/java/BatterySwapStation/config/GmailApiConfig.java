@@ -11,13 +11,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GmailApiConfig {
 
-    @Value("${gmail.client.id}")
+    @Value("${GMAIL_CLIENT_ID}")
     private String clientId;
 
-    @Value("${gmail.client.secret}")
+    @Value("${GMAIL_CLIENT_SECRET}")
     private String clientSecret;
 
-    @Value("${gmail.refresh.token}")
+    @Value("${GMAIL_REFRESH_TOKEN}")
     private String refreshToken;
 
     @Bean
@@ -33,10 +33,10 @@ public class GmailApiConfig {
                 .setRefreshToken(refreshToken);
 
         if (!credential.refreshToken()) {
-            throw new IllegalStateException("❌ Refresh token không hợp lệ hoặc đã hết hạn. Kiểm tra biến môi trường trên Railway!");
+            throw new IllegalStateException("❌ Refresh token không hợp lệ hoặc hết hạn.");
         }
 
-        System.out.println("✅ Gmail API đã khởi tạo thành công trên server.");
+        System.out.println("✅ Gmail API initialized successfully (Railway).");
 
         return new Gmail.Builder(transport, jsonFactory, credential)
                 .setApplicationName("BatterySwapStation")

@@ -21,12 +21,10 @@ public class EmailService {
     private final Gmail gmail;
 
     // 🟢 Địa chỉ Gmail dùng để gửi (chính là Gmail bạn cấp refresh token)
-    @Value("${gmail.user}")
+    @Value("${GMAIL_USER}")
     private String gmailUser;
 
-    /**
-     * Gửi email xác minh tài khoản đến người dùng
-     */
+
     public void sendVerificationEmail(String fullName, String email, String verifyUrl) {
         String html = """
                 <html>
@@ -51,9 +49,6 @@ public class EmailService {
         sendViaGmailApi(email, "Xác minh tài khoản Battery Swap Station", html);
     }
 
-    /**
-     * Gửi email HTML thông qua Gmail API
-     */
     private void sendViaGmailApi(String to, String subject, String htmlContent) {
         try {
             // 🔹 Chuẩn bị session
