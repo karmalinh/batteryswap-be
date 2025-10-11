@@ -46,7 +46,11 @@ public class AuthController {
                         "userId", user.getUserId()
                 ));
     }
-
+    @GetMapping("/send")
+    public String testEmail(@RequestParam String to) {
+        emailService.sendVerificationEmail("Test User", to, "https://example.com/verify");
+        return "✅ Email test đã gửi tới " + to;
+    }
 
 
     @PostMapping("/login")
