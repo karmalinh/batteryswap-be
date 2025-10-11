@@ -20,14 +20,7 @@ public class EmailService {
     @Value("${SPRING_MAIL_FROM}")
     private String fromEmail;
 
-    // 📩 Gửi email thuần text
-    public void send(String to, String subject, String text) {
-        Email from = new Email(fromEmail);
-        Email recipient = new Email(to);
-        Content content = new Content("text/plain", text);
-        Mail mail = new Mail(from, subject, recipient, content);
-        sendMail(mail);
-    }
+
 
     // 📩 Gửi email xác minh tài khoản
     public void sendVerificationEmail(String fullName, String email, String verifyUrl) {
@@ -50,11 +43,17 @@ public class EmailService {
             request.setEndpoint("mail/send");
             request.setBody(mail.build());
             Response response = sg.api(request);
-            System.out.println("📧 SendGrid Response Code: " + response.getStatusCode());
+
+            int statusCode = response.getStatusCode();
+            System.out.println("📧 SendGrid Response Code: " + statusCode);
+            System.out.println("📧 SendGrid Response Body: " + response.getBody());
+            System.out.println("📧 SendGrid Response Headers: " + response.getHeaders());
+
         } catch (IOException e) {
             throw new RuntimeException("Lỗi khi gửi email qua SendGrid: " + e.getMessage(), e);
         }
     }
+
 
     // 🎨 HTML Template
     private String getHtmlTemplate(String fullName, String verifyUrl) {
