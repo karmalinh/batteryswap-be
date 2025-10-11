@@ -1,7 +1,6 @@
 package BatterySwapStation.controller;
 
 import BatterySwapStation.dto.*;
-
 import BatterySwapStation.entity.*;
 import BatterySwapStation.service.*;
 import BatterySwapStation.service.UserService;
@@ -12,15 +11,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-
 import java.util.Map;
 
 @RestController
 @PreAuthorize("permitAll()")
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-
 public class AuthController {
 
     private final UserService userService;
@@ -28,21 +24,16 @@ public class AuthController {
     private final EmailVerificationService emailVerificationService;
     private final EmailService emailService;
 
-
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
         User user = userService.registerUser(req);
 
-        // ✅ Tạo token và gửi email xác thực
+        // ✅ Tạo token xác thực email
         String token = emailVerificationService.createVerificationToken(user);
         String verifyUrl = "http://localhost:5173/verify-email?token=" + token;
 
-        emailService.send(
-                user.getEmail(),
-                "Xác thực tài khoản Battery Swap Station",
-                "Chào " + user.getFullName() + ",\n\nHãy xác thực tài khoản của bạn tại liên kết sau: " + verifyUrl
-        );
-
+        // ✅ Gửi email HTML đẹp
+        emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -51,8 +42,6 @@ public class AuthController {
                         "userId", user.getUserId()
                 ));
     }
-
-
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
@@ -86,7 +75,6 @@ public class AuthController {
         ));
     }
 
-
     @GetMapping("/verify-email")
     public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
         try {
@@ -97,7 +85,7 @@ public class AuthController {
                     "message", result
             ));
         } catch (RuntimeException ex) {
-            // ✅ Bắt lỗi từ EmailVerificationService
+            // ✅ Lỗi logic (token hết hạn, không hợp lệ, v.v.)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "status", 400,
                     "success", false,
@@ -112,8 +100,4 @@ public class AuthController {
             ));
         }
     }
-
-
-
 }
-
