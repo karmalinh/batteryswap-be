@@ -72,16 +72,16 @@ public class AuthController {
             @RequestBody RoleDTO roleDTO) {
         boolean updated = authService.updateUserRole(userId, roleDTO);
         if (updated) {
-            return ResponseEntity.ok("Role updated successfully!");
+            return ResponseEntity.ok("Cập nhật vai trò thành công!");
         } else {
-            return ResponseEntity.badRequest().body("User or Role not found!");
+            return ResponseEntity.badRequest().body("Không tìm thấy người dùng hoặc vai trò!");
         }
     }
 
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal User user) {
         if (user == null) {
-            return ResponseEntity.status(401).body("Unauthorized");
+            return ResponseEntity.status(401).body("Không có quyền truy cập");
         }
 
         return ResponseEntity.ok(Map.of(

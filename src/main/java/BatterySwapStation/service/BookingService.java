@@ -26,18 +26,18 @@ public class BookingService {
     private final VehicleRepository vehicleRepository;
 
     /**
-     * Tạo booking mới (giới hạn tối đa 3 xe, chỉ 1 trạm, ngày trong 2 ngày, khung giờ hợp lệ)
+     * Tạo đặt chỗ mới (giới hạn tối đa 1 xe, chỉ 1 trạm, ngày trong 2 ngày, khung giờ hợp lệ)
      */
     public BookingResponse createBooking(BookingRequest request) {
-        // Validate user
+        // Xác thực người dùng
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy người dùng với mã: " + request.getUserId()));
 
-        // Validate station
+        // Xác thực trạm
         Station station = stationRepository.findById(request.getStationId())
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy trạm với mã: " + request.getStationId()));
 
-        // Validate vehicle
+        // Xác thực xe
         Integer vehicleId = request.getVehicleId();
         if (vehicleId == null) {
             throw new IllegalArgumentException("Bạn phải chọn một xe để đặt pin.");
@@ -46,18 +46,18 @@ public class BookingService {
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với mã: " + vehicleId));
 
-        // Kiểm tra xe thuộc trạm được chọn
+        // Kiểm tra xe thuộc về người dùng
         if (vehicle.getUser() == null || !vehicle.getUser().getUserId().equals(user.getUserId())) {
             throw new IllegalArgumentException("Xe này không thuộc về bạn.");
         }
 
-        // Kiểm tra ngày booking trong vòng 2 ngày
+        // Kiểm tra ngày đặt chỗ trong vòng 2 ngày
         LocalDate now = LocalDate.now();
         if (request.getBookingDate().isBefore(now) || request.getBookingDate().isAfter(now.plusDays(2))) {
             throw new IllegalArgumentException("Ngày đặt pin phải nằm trong vòng 2 ngày kể từ hôm nay.");
         }
 
-        // Kiểm tra timeSlot hợp lệ (chỉ nhận các giá trị: 1h30, 2h, 2h30)
+        // Kiểm tra khung giờ hợp lệ (chỉ nhận các giá trị: 1h30, 2h, 2h30)
         if (request.getTimeSlot() == null) {
             throw new IllegalArgumentException("Bạn phải chọn khung giờ.");
         }
@@ -68,38 +68,37 @@ public class BookingService {
             throw new IllegalArgumentException("Khung giờ chỉ được chọn 1h30, 2h hoặc 2h30.");
         }
 
-        // Kiểm tra user đã có booking active chưa
+        // Kiểm tra người dùng đã có đặt chỗ đang hoạt động chưa
         if (bookingRepository.existsActiveBookingForUser(user, now)) {
             throw new IllegalStateException("Bạn đã có một lượt đặt pin đang hoạt động.");
         }
 
-        // Kiểm tra time slot đã được đặt chưa
+        // Kiểm tra khung giờ đã được đặt chưa
         if (bookingRepository.existsBookingAtTimeSlot(station, request.getBookingDate(), request.getTimeSlot())) {
             throw new IllegalStateException("Khung giờ này đã có người đặt trước.");
         }
 
-        // Tạo booking cho từng xe (hoặc gộp nếu cần)
+        // Tạo đặt chỗ mới
         Booking booking = Booking.builder()
                 .user(user)
                 .station(station)
-                .vehicle(vehicle) // Nếu chỉ 1 xe, lấy xe đầu tiên
+                .vehicle(vehicle)
                 .bookingDate(request.getBookingDate())
                 .timeSlot(request.getTimeSlot())
                 .bookingStatus(Booking.BookingStatus.PENDING)
                 .build();
         Booking savedBooking = bookingRepository.save(booking);
-        // TODO: Nếu cần gộp hóa đơn, lưu thông tin liên kết các booking lại
 
-        // Tạo battery items nếu có
+        // Tạo các mục pin nếu có
         if (request.getBatteryItems() != null && !request.getBatteryItems().isEmpty()) {
-            // TODO: Implement battery items logic
+            // TODO: Triển khai logic các mục pin
         }
 
         return convertToResponse(savedBooking);
     }
 
     /**
-     * Lấy danh sách booking của user
+     * Lấy danh sách đặt chỗ của người dùng
      */
     @Transactional(readOnly = true)
     public List<BookingResponse> getUserBookings(String userId) {
@@ -113,7 +112,7 @@ public class BookingService {
     }
 
     /**
-     * Lấy booking theo ID
+     * Lấy đặt chỗ theo ID
      */
     @Transactional(readOnly = true)
     public BookingResponse getBookingById(Long bookingId, String userId) {
@@ -127,7 +126,7 @@ public class BookingService {
     }
 
     /**
-     * Hủy booking
+     * Hủy đặt chỗ
      */
     public BookingResponse cancelBooking(CancelBookingRequest request) {
         User user = userRepository.findById(request.getUserId())
@@ -136,7 +135,7 @@ public class BookingService {
         Booking booking = bookingRepository.findByBookingIdAndUser(request.getBookingId(), user)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt đặt pin với mã: " + request.getBookingId()));
 
-        // Kiểm tra booking có thể hủy không
+        // Kiểm tra đặt chỗ có thể hủy không
         if (booking.getBookingStatus() == Booking.BookingStatus.CANCELLED) {
             throw new IllegalStateException("Lượt đặt pin này đã bị hủy trước đó.");
         }
@@ -145,7 +144,7 @@ public class BookingService {
             throw new IllegalStateException("Không thể hủy lượt đặt pin đã hoàn thành.");
         }
 
-        // Hủy booking
+        // Hủy đặt chỗ
         booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
         Booking savedBooking = bookingRepository.save(booking);
 
@@ -153,7 +152,7 @@ public class BookingService {
     }
 
     /**
-     * Lấy danh sách booking theo trạng thái
+     * Lấy danh sách đặt chỗ theo trạng thái
      */
     @Transactional(readOnly = true)
     public List<BookingResponse> getBookingsByStatus(Booking.BookingStatus status) {
@@ -164,7 +163,7 @@ public class BookingService {
     }
 
     /**
-     * Lấy danh sách booking của station
+     * Lấy danh sách đặt chỗ của trạm
      */
     @Transactional(readOnly = true)
     public List<BookingResponse> getStationBookings(Integer stationId) {
@@ -178,7 +177,7 @@ public class BookingService {
     }
 
     /**
-     * Cập nhật trạng thái booking
+     * Cập nhật trạng thái đặt chỗ
      */
     public BookingResponse updateBookingStatus(Long bookingId, Booking.BookingStatus newStatus) {
         Booking booking = bookingRepository.findById(bookingId)
@@ -191,7 +190,7 @@ public class BookingService {
     }
 
     /**
-     * Lấy tất cả booking (dành cho admin)
+     * Lấy tất cả đặt chỗ (dành cho quản trị viên)
      */
     @Transactional(readOnly = true)
     public List<BookingResponse> getAllBookings() {
@@ -202,7 +201,7 @@ public class BookingService {
     }
 
     /**
-     * Convert Booking entity to BookingResponse DTO
+     * Chuyển đổi Booking entity thành BookingResponse DTO
      */
     private BookingResponse convertToResponse(Booking booking) {
         BookingResponse response = new BookingResponse();
@@ -222,8 +221,8 @@ public class BookingService {
         response.setTimeSlot(booking.getTimeSlot());
         response.setBookingStatus(booking.getBookingStatus().toString());
 
-        // TODO: Add battery items mapping
-        // TODO: Add payment info mapping
+        // TODO: Thêm mapping các mục pin
+        // TODO: Thêm mapping thông tin thanh toán
 
         return response;
     }
