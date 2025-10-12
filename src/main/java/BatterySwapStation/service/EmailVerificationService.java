@@ -17,6 +17,7 @@ public class EmailVerificationService {
 
     private final EmailVerificationTokenRepository tokenRepo;
     private final UserRepository userRepo;
+    private final JwtService jwtService;
 
     public String createVerificationToken(User user) {
         String token = UUID.randomUUID().toString();
@@ -29,31 +30,32 @@ public class EmailVerificationService {
                 .build();
 
         tokenRepo.save(verificationToken);
-        return token;
+        return jwtService.generateVerifyEmailToken(user.getEmail());
     }
 
     @Transactional
     public String verifyEmail(String token) {
-        var verification = tokenRepo.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Liên kết xác thực không hợp lệ hoặc đã hết hạn."));
-
-        if (verification.isUsed()) {
-            throw new RuntimeException("Liên kết này đã được sử dụng.");
+        String email;
+        try {
+            email = jwtService.extractEmailAllowExpired(token);
+        } catch (Exception e) {
+            throw new RuntimeException("Liên kết xác thực không hợp lệ hoặc đã bị thay đổi!");
         }
 
-        if (verification.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Liên kết xác thực đã hết hạn.");
+        User user = userRepo.findByEmail(email);
+        if (user == null) {
+            throw new RuntimeException("Không tìm thấy người dùng.");
         }
 
-        verification.setUsed(true);
-        tokenRepo.save(verification);
+        if (user.isVerified()) {
+            throw new RuntimeException("Tài khoản này đã được xác thực trước đó!");
+        }
 
-        User user = verification.getUser();
         user.setVerified(true);
         userRepo.save(user);
-
-        return "Tài khoản " + user.getEmail() + " đã được xác thực thành công!";
+        return "Tài khoản " + email + " đã được xác thực thành công!";
     }
+
 
     public User getUserByEmail(String email) {
         User user = userRepo.findByEmail(email);

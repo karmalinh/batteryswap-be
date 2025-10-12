@@ -101,4 +101,29 @@ public class JwtService {
 
         return claims.getSubject(); // email
     }
+
+    public String generateVerifyEmailToken(String email) {
+        return Jwts.builder()
+                .setSubject(email)
+                .claim("purpose", "verify_email")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + resendExpirationMillis)) // ví dụ 15 phút
+                .signWith(resendKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String extractEmailAllowExpired(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(resendKey)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
+            return ex.getClaims().getSubject(); // ✅ vẫn lấy được email nếu token hết hạn
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Token không hợp lệ hoặc bị thay đổi!");
+        }
+    }
 }

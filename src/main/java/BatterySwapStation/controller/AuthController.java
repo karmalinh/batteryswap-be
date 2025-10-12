@@ -41,23 +41,19 @@ public class AuthController {
         String verifyUrl = FRONTEND_VERIFY_URL + "?token=" + token;
         emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
 
-        // 🆕 Sinh resendToken để FE lưu
-        String resendToken = jwtService.generateResendToken(user.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "message", "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
+                "userId", user.getUserId(),
+                "verifyLink", verifyUrl
+        ));
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(Map.of(
-                        "message", "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
-                        "userId", user.getUserId(),
-                        "resendToken", resendToken
-                ));
     }
 
 
     @GetMapping("/send")
     public String testEmail(@RequestParam String to) {
         emailService.sendVerificationEmail("Test User", to, "https://example.com/verify");
-        return "✅ Email test đã gửi tới " + to;
+        return "Email test đã gửi tới " + to;
     }
 
 
@@ -72,16 +68,22 @@ public class AuthController {
             @RequestBody RoleDTO roleDTO) {
         boolean updated = authService.updateUserRole(userId, roleDTO);
         if (updated) {
-            return ResponseEntity.ok("Cập nhật vai trò thành công!");
+<<<<<<< HEAD
+            return ResponseEntity.ok("Role cập nhật thành công");
         } else {
-            return ResponseEntity.badRequest().body("Không tìm thấy người dùng hoặc vai trò!");
+            return ResponseEntity.badRequest().body("User và Role không tìm thấy");
+=======
+            return ResponseEntity.ok("Role cập nhật thành công");
+        } else {
+            return ResponseEntity.badRequest().body("User và Role không tìm thấy");
+>>>>>>> 9404e3f4a9fe6d3c1276a1637f038835efb353c5
         }
     }
 
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal User user) {
         if (user == null) {
-            return ResponseEntity.status(401).body("Không có quyền truy cập");
+            return ResponseEntity.status(401).body("Unauthorized");
         }
 
         return ResponseEntity.ok(Map.of(
@@ -122,10 +124,10 @@ public class AuthController {
 
     }
 
-    @PostMapping("/resend-verification-by-token")
-    public ResponseEntity<?> resendVerificationByToken(@RequestParam("token") String resendToken) {
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@RequestParam("token") String token) {
         try {
-            String email = jwtService.extractEmailFromResendToken(resendToken);
+            String email = jwtService.extractEmailAllowExpired(token);
             User user = emailVerificationService.getUserByEmail(email);
 
             if (user.isVerified()) {
@@ -136,23 +138,15 @@ public class AuthController {
                 ));
             }
 
-            // Xóa token cũ và tạo mới
-            emailVerificationService.invalidateOldTokens(user);
-
             String newToken = emailVerificationService.createVerificationToken(user);
             String verifyUrl = FRONTEND_VERIFY_URL + "?token=" + newToken;
-            emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
-
-            // Sinh resendToken mới (thay token cũ)
-            String nextResendToken = jwtService.generateResendToken(email);
+            emailService.sendVerificationEmail(user.getFullName(), email, verifyUrl);
 
             return ResponseEntity.ok(Map.of(
                     "status", 200,
                     "success", true,
-                    "message", "Email xác minh mới đã được gửi tới " + email,
-                    "resendToken", nextResendToken
+                    "message", "Email xác minh mới đã được gửi tới " + email
             ));
-
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "status", 400,
@@ -167,5 +161,6 @@ public class AuthController {
             ));
         }
     }
+
 
 }
