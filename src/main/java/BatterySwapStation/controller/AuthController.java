@@ -27,6 +27,10 @@ public class AuthController {
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
     private final EmailService emailService;
+    private final JwtService jwtService;
+
+    private static final String FRONTEND_VERIFY_URL = "http://localhost:5173/verify-email";
+
 
 
     @PostMapping("/register")
@@ -34,18 +38,22 @@ public class AuthController {
         User user = userService.registerUser(req);
 
         String token = emailVerificationService.createVerificationToken(user);
-        String verifyUrl = "http://localhost:5173/verify-email?token=" + token;
-
-        // ✅ Chỉ gửi HTML email
+        String verifyUrl = FRONTEND_VERIFY_URL + "?token=" + token;
         emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
+
+        // 🆕 Sinh resendToken để FE lưu
+        String resendToken = jwtService.generateResendToken(user.getEmail());
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(Map.of(
                         "message", "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
-                        "userId", user.getUserId()
+                        "userId", user.getUserId(),
+                        "resendToken", resendToken
                 ));
     }
+
+
     @GetMapping("/send")
     public String testEmail(@RequestParam String to) {
         emailService.sendVerificationEmail("Test User", to, "https://example.com/verify");
@@ -114,9 +122,10 @@ public class AuthController {
 
     }
 
-    @PostMapping("/resend-verification")
-    public ResponseEntity<?> resendVerification(@RequestParam("email") String email) {
+    @PostMapping("/resend-verification-by-token")
+    public ResponseEntity<?> resendVerificationByToken(@RequestParam("token") String resendToken) {
         try {
+            String email = jwtService.extractEmailFromResendToken(resendToken);
             User user = emailVerificationService.getUserByEmail(email);
 
             if (user.isVerified()) {
@@ -127,19 +136,26 @@ public class AuthController {
                 ));
             }
 
-            // ✅ Tạo token mới và gửi lại email xác minh
+            // Xóa token cũ và tạo mới
+            emailVerificationService.invalidateOldTokens(user);
+
             String newToken = emailVerificationService.createVerificationToken(user);
-            String verifyUrl = "http://localhost:5173/verify-email?token=" + newToken;
+            String verifyUrl = FRONTEND_VERIFY_URL + "?token=" + newToken;
             emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
+
+            // Sinh resendToken mới (thay token cũ)
+            String nextResendToken = jwtService.generateResendToken(email);
 
             return ResponseEntity.ok(Map.of(
                     "status", 200,
                     "success", true,
-                    "message", "Email xác minh mới đã được gửi tới " + email
+                    "message", "Email xác minh mới đã được gửi tới " + email,
+                    "resendToken", nextResendToken
             ));
+
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                    "status", 404,
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "status", 400,
                     "success", false,
                     "message", ex.getMessage()
             ));
