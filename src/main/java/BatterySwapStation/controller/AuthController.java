@@ -32,7 +32,6 @@ public class AuthController {
     private static final String FRONTEND_VERIFY_URL = "http://localhost:5173/verify-email";
 
 
-
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
         User user = userService.registerUser(req);
@@ -41,19 +40,23 @@ public class AuthController {
         String verifyUrl = FRONTEND_VERIFY_URL + "?token=" + token;
         emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "message", "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
-                "userId", user.getUserId(),
-                "verifyLink", verifyUrl
-        ));
+        // 🆕 Sinh resendToken để FE lưu
+        String resendToken = jwtService.generateResendToken(user.getEmail());
 
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(Map.of(
+                        "message", "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
+                        "userId", user.getUserId(),
+                        "resendToken", resendToken
+                ));
     }
 
 
     @GetMapping("/send")
     public String testEmail(@RequestParam String to) {
         emailService.sendVerificationEmail("Test User", to, "https://example.com/verify");
-        return "Email test đã gửi tới " + to;
+        return "✅ Email test đã gửi tới " + to;
     }
 
 
@@ -68,22 +71,16 @@ public class AuthController {
             @RequestBody RoleDTO roleDTO) {
         boolean updated = authService.updateUserRole(userId, roleDTO);
         if (updated) {
-<<<<<<< HEAD
-            return ResponseEntity.ok("Role cập nhật thành công");
+            return ResponseEntity.ok("Cập nhật vai trò thành công!");
         } else {
-            return ResponseEntity.badRequest().body("User và Role không tìm thấy");
-=======
-            return ResponseEntity.ok("Role cập nhật thành công");
-        } else {
-            return ResponseEntity.badRequest().body("User và Role không tìm thấy");
->>>>>>> 9404e3f4a9fe6d3c1276a1637f038835efb353c5
+            return ResponseEntity.badRequest().body("Không tìm thấy người dùng hoặc vai trò!");
         }
     }
 
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal User user) {
         if (user == null) {
-            return ResponseEntity.status(401).body("Unauthorized");
+            return ResponseEntity.status(401).body("Không có quyền truy cập");
         }
 
         return ResponseEntity.ok(Map.of(
@@ -124,10 +121,10 @@ public class AuthController {
 
     }
 
-    @PostMapping("/resend-verification")
-    public ResponseEntity<?> resendVerification(@RequestParam("token") String token) {
+    @PostMapping("/resend-verification-by-token")
+    public ResponseEntity<?> resendVerificationByToken(@RequestParam("token") String resendToken) {
         try {
-            String email = jwtService.extractEmailAllowExpired(token);
+            String email = jwtService.extractEmailFromResendToken(resendToken);
             User user = emailVerificationService.getUserByEmail(email);
 
             if (user.isVerified()) {
@@ -138,15 +135,23 @@ public class AuthController {
                 ));
             }
 
+            // Xóa token cũ và tạo mới
+            emailVerificationService.invalidateOldTokens(user);
+
             String newToken = emailVerificationService.createVerificationToken(user);
             String verifyUrl = FRONTEND_VERIFY_URL + "?token=" + newToken;
-            emailService.sendVerificationEmail(user.getFullName(), email, verifyUrl);
+            emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
+
+            // Sinh resendToken mới (thay token cũ)
+            String nextResendToken = jwtService.generateResendToken(email);
 
             return ResponseEntity.ok(Map.of(
                     "status", 200,
                     "success", true,
-                    "message", "Email xác minh mới đã được gửi tới " + email
+                    "message", "Email xác minh mới đã được gửi tới " + email,
+                    "resendToken", nextResendToken
             ));
+
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "status", 400,
@@ -161,6 +166,4 @@ public class AuthController {
             ));
         }
     }
-
-
 }
