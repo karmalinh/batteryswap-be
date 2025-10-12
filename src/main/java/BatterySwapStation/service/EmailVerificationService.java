@@ -66,15 +66,4 @@ public class EmailVerificationService {
     }
 
 
-    public void invalidateOldTokens(User user) {
-        List<EmailVerificationToken> tokens = tokenRepo.findAllByUser(user);
-
-        for (EmailVerificationToken t : tokens) {
-            if (!t.isUsed()) {
-                t.setUsed(true);
-            }
-        }
-
-        tokenRepo.saveAll(tokens);
-    }
 }

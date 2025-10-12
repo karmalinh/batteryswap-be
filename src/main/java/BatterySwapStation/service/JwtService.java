@@ -31,14 +31,13 @@ public class JwtService {
         this.resendKey = Keys.hmacShaKeyFor(resendSecret.getBytes(StandardCharsets.UTF_8));
         this.resendExpirationMillis = resendExpirationMillis;
 
-        // ✅ Log để xác minh đã load đúng từ .env (tùy chọn)
-        System.out.println("🔑 JWT Main Expiration: " + expirationMillis + " ms");
-        System.out.println("📨 JWT Resend Expiration: " + resendExpirationMillis + " ms");
+        //  Log để xác minh đã load đúng từ .env (tùy chọn)
+        System.out.println(" JWT Main : " + expirationMillis + " ms");
+        System.out.println(" JWT Resend : " + resendExpirationMillis + " ms");
     }
 
-    // ===========================
     // 🔐 TOKEN CHO LOGIN
-    // ===========================
+
     public String generateToken(String userId, String email, String phone, String role) {
         return Jwts.builder()
                 .setSubject(userId)
@@ -75,32 +74,6 @@ public class JwtService {
         return expiration.before(new Date());
     }
 
-    // ===========================
-    // 📨 TOKEN CHO RESEND VERIFY
-    // ===========================
-    public String generateResendToken(String email) {
-        return Jwts.builder()
-                .setSubject(email)
-                .claim("type", "resend")
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + resendExpirationMillis))
-                .signWith(resendKey, SignatureAlgorithm.HS256)
-                .compact();
-    }
-
-    public String extractEmailFromResendToken(String token) {
-        var claims = Jwts.parserBuilder()
-                .setSigningKey(resendKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-
-        if (!"resend".equals(claims.get("type"))) {
-            throw new IllegalArgumentException("Token không hợp lệ (type không khớp).");
-        }
-
-        return claims.getSubject(); // email
-    }
 
     public String generateVerifyEmailToken(String email) {
         return Jwts.builder()
@@ -121,7 +94,7 @@ public class JwtService {
                     .getBody()
                     .getSubject();
         } catch (io.jsonwebtoken.ExpiredJwtException ex) {
-            return ex.getClaims().getSubject(); // ✅ vẫn lấy được email nếu token hết hạn
+            return ex.getClaims().getSubject(); //  vẫn lấy được email nếu token hết hạn
         } catch (Exception ex) {
             throw new IllegalArgumentException("Token không hợp lệ hoặc bị thay đổi!");
         }
