@@ -113,4 +113,43 @@ public class AuthController {
         }
 
     }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@RequestParam("email") String email) {
+        try {
+            User user = emailVerificationService.getUserByEmail(email);
+
+            if (user.isVerified()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "status", 400,
+                        "success", false,
+                        "message", "Tài khoản này đã được xác thực rồi!"
+                ));
+            }
+
+            // ✅ Tạo token mới và gửi lại email xác minh
+            String newToken = emailVerificationService.createVerificationToken(user);
+            String verifyUrl = "http://localhost:5173/verify-email?token=" + newToken;
+            emailService.sendVerificationEmail(user.getFullName(), user.getEmail(), verifyUrl);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "success", true,
+                    "message", "Email xác minh mới đã được gửi tới " + email
+            ));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", 404,
+                    "success", false,
+                    "message", ex.getMessage()
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "status", 500,
+                    "success", false,
+                    "message", "Không thể gửi lại email xác minh. Vui lòng thử lại sau."
+            ));
+        }
+    }
+
 }

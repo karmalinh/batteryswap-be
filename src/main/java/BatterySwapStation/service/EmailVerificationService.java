@@ -8,6 +8,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -24,6 +25,7 @@ public class EmailVerificationService {
                 .token(token)
                 .createdAt(LocalDateTime.now())
                 .expiresAt(LocalDateTime.now().plusMinutes(30))
+                .isUsed(false)
                 .build();
 
         tokenRepo.save(verificationToken);
@@ -43,11 +45,9 @@ public class EmailVerificationService {
             throw new RuntimeException("Liên kết xác thực đã hết hạn.");
         }
 
-        // ✅ Đánh dấu token đã dùng
         verification.setUsed(true);
         tokenRepo.save(verification);
 
-        // ✅ Kích hoạt tài khoản user
         User user = verification.getUser();
         user.setVerified(true);
         userRepo.save(user);
@@ -55,5 +55,24 @@ public class EmailVerificationService {
         return "Tài khoản " + user.getEmail() + " đã được xác thực thành công!";
     }
 
+    public User getUserByEmail(String email) {
+        User user = userRepo.findByEmail(email);
+        if (user == null) {
+            throw new IllegalArgumentException("Không tìm thấy người dùng với email: " + email);
+        }
+        return user;
+    }
 
+
+    public void invalidateOldTokens(User user) {
+        List<EmailVerificationToken> tokens = tokenRepo.findAllByUser(user);
+
+        for (EmailVerificationToken t : tokens) {
+            if (!t.isUsed()) {
+                t.setUsed(true);
+            }
+        }
+
+        tokenRepo.saveAll(tokens);
+    }
 }
