@@ -99,4 +99,20 @@ public class JwtService {
             throw new IllegalArgumentException("Token không hợp lệ hoặc bị thay đổi!");
         }
     }
+
+    public String extractEmailStrict(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(resendKey)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Token không hợp lệ hoặc bị thay đổi!");
+        }
+    }
+
 }
