@@ -32,4 +32,5 @@ public class BookingRequest {
         private String batteryType;
         private Integer quantity;
     }
+
 }
