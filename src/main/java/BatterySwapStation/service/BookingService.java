@@ -376,4 +376,176 @@ public class BookingService {
                 return 25000.0; // Giá mặc định
         }
     }
+
+    /**
+     * Lấy danh sách xe của user
+     */
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getUserVehicles(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy người dùng với mã: " + userId));
+
+        List<Vehicle> vehicles = vehicleRepository.findByUserAndIsActiveTrueWithOwner(user);
+
+        return vehicles.stream()
+                .map(vehicle -> {
+                    java.util.Map<String, Object> vehicleMap = new java.util.HashMap<>();
+                    vehicleMap.put("vehicleId", vehicle.getVehicleId());
+                    vehicleMap.put("VIN", vehicle.getVIN());
+                    vehicleMap.put("vehicleType", vehicle.getVehicleType() != null ? vehicle.getVehicleType().toString() : "UNKNOWN");
+                    vehicleMap.put("batteryType", vehicle.getBatteryType() != null ? vehicle.getBatteryType().toString() : "UNKNOWN");
+                    vehicleMap.put("batteryCount", vehicle.getBatteryCount());
+                    vehicleMap.put("licensePlate", vehicle.getLicensePlate());
+                    vehicleMap.put("color", vehicle.getColor());
+                    vehicleMap.put("ownerName", vehicle.getOwnerName());
+                    vehicleMap.put("isActive", vehicle.isActive());
+                    vehicleMap.put("manufactureDate", vehicle.getManufactureDate());
+                    vehicleMap.put("purchaseDate", vehicle.getPurchaseDate());
+
+                    // Tính giá dự kiến cho việc thay pin
+                    Double estimatedPrice = calculateBookingAmountByVehicleBatteryType(vehicle);
+                    vehicleMap.put("estimatedSwapPrice", estimatedPrice);
+
+                    return vehicleMap;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Lấy thông tin chi tiết xe
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getVehicleDetail(Integer vehicleId) {
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với mã: " + vehicleId));
+
+        java.util.Map<String, Object> vehicleDetail = new java.util.HashMap<>();
+        vehicleDetail.put("vehicleId", vehicle.getVehicleId());
+        vehicleDetail.put("VIN", vehicle.getVIN());
+        vehicleDetail.put("vehicleType", vehicle.getVehicleType() != null ? vehicle.getVehicleType().toString() : "UNKNOWN");
+        vehicleDetail.put("batteryType", vehicle.getBatteryType() != null ? vehicle.getBatteryType().toString() : "UNKNOWN");
+        vehicleDetail.put("batteryCount", vehicle.getBatteryCount());
+        vehicleDetail.put("licensePlate", vehicle.getLicensePlate());
+        vehicleDetail.put("color", vehicle.getColor());
+        vehicleDetail.put("ownerName", vehicle.getOwnerName());
+        vehicleDetail.put("isActive", vehicle.isActive());
+        vehicleDetail.put("manufactureDate", vehicle.getManufactureDate());
+        vehicleDetail.put("purchaseDate", vehicle.getPurchaseDate());
+
+        // Thông tin user sở hữu
+        if (vehicle.getUser() != null) {
+            vehicleDetail.put("userId", vehicle.getUser().getUserId());
+            vehicleDetail.put("userName", vehicle.getUser().getFullName());
+            vehicleDetail.put("userEmail", vehicle.getUser().getEmail());
+        }
+
+        // Tính giá dự kiến cho việc thay pin
+        Double estimatedPrice = calculateBookingAmountByVehicleBatteryType(vehicle);
+        vehicleDetail.put("estimatedSwapPrice", estimatedPrice);
+
+        // Kiểm tra xe có booking đang hoạt động không
+        LocalDate currentDate = LocalDate.now();
+        boolean hasActiveBooking = vehicle.getUser() != null &&
+                bookingRepository.existsActiveBookingForUserByDate(vehicle.getUser(), currentDate);
+        vehicleDetail.put("hasActiveBooking", hasActiveBooking);
+
+        return vehicleDetail;
+    }
+
+    /**
+     * Kiểm tra xe có thể booking không
+     */
+    @Transactional(readOnly = true)
+    public boolean validateVehicleForBooking(Integer vehicleId, String userId) {
+        try {
+            // Kiểm tra xe tồn tại
+            Vehicle vehicle = vehicleRepository.findById(vehicleId)
+                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với mã: " + vehicleId));
+
+            // Kiểm tra xe thuộc về user
+            if (vehicle.getUser() == null || !vehicle.getUser().getUserId().equals(userId)) {
+                return false;
+            }
+
+            // Kiểm tra xe đang hoạt động
+            if (!vehicle.isActive()) {
+                return false;
+            }
+
+            // Kiểm tra user có booking đang hoạt động không
+            LocalDate currentDate = LocalDate.now();
+            if (bookingRepository.existsActiveBookingForUserByDate(vehicle.getUser(), currentDate)) {
+                return false;
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Lấy danh sách booking của xe cụ thể
+     */
+    @Transactional(readOnly = true)
+    public List<BookingResponse> getVehicleBookings(Integer vehicleId, String userId) {
+        Vehicle vehicle = vehicleRepository.findByVehicleIdAndUser_UserId(vehicleId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với mã: " + vehicleId + " thuộc về user: " + userId));
+
+        List<Booking> bookings = bookingRepository.findByVehicle(vehicle);
+        return bookings.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Tạo booking nhanh cho xe cụ thể
+     */
+    public BookingResponse createQuickBookingForVehicle(Integer vehicleId, String userId, Integer stationId,
+                                                       LocalDate bookingDate, String timeSlot) {
+        // Validate xe thuộc về user
+        Vehicle vehicle = vehicleRepository.findByVehicleIdAndUser_UserId(vehicleId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với mã: " + vehicleId + " thuộc về user: " + userId));
+
+        // Tạo booking request
+        BookingRequest request = new BookingRequest();
+        request.setUserId(userId);
+        request.setVehicleId(vehicleId);
+        request.setStationId(stationId);
+        request.setBookingDate(bookingDate);
+        request.setTimeSlot(timeSlot);
+
+        return createBooking(request);
+    }
+
+    /**
+     * Cập nhật thông tin xe trong booking (nếu cần)
+     */
+    public BookingResponse updateVehicleInBooking(Long bookingId, Integer newVehicleId, String userId) {
+        // Lấy booking
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy booking với mã: " + bookingId));
+
+        // Kiểm tra quyền sở hữu
+        if (!booking.getUser().getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Bạn không có quyền cập nhật booking này");
+        }
+
+        // Kiểm tra trạng thái booking
+        if (booking.getBookingStatus() != Booking.BookingStatus.PENDING) {
+            throw new IllegalStateException("Chỉ có thể cập nhật xe cho booking đang chờ xử lý");
+        }
+
+        // Validate xe mới
+        Vehicle newVehicle = vehicleRepository.findByVehicleIdAndUser_UserId(newVehicleId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với mã: " + newVehicleId + " thuộc về user: " + userId));
+
+        // Cập nhật xe và tính lại giá
+        booking.setVehicle(newVehicle);
+        booking.setVehicleType(newVehicle.getVehicleType() != null ? newVehicle.getVehicleType().toString() : "UNKNOWN");
+        booking.setAmount(calculateBookingAmountByVehicleBatteryType(newVehicle));
+
+        Booking savedBooking = bookingRepository.save(booking);
+        return convertToResponse(savedBooking);
+    }
 }
