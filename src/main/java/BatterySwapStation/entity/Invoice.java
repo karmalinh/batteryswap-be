@@ -25,6 +25,14 @@ public class Invoice {
     @Column(name = "totalamount")
     private Double totalAmount;
 
+    // Giá mỗi lần đổi pin (ví dụ: 15,000 VNĐ)
+    @Column(name = "priceperswap")
+    private Double pricePerSwap = 15000.0;
+
+    // Số lần đổi pin
+    @Column(name = "numberofswaps")
+    private Integer numberOfSwaps = 0;
+
     @OneToMany(mappedBy = "invoice")
     private List<Booking> bookings;
 
@@ -64,11 +72,34 @@ public class Invoice {
         this.totalAmount = totalAmount;
     }
 
+    public Double getPricePerSwap() {
+        return pricePerSwap;
+    }
+
+    public void setPricePerSwap(Double pricePerSwap) {
+        this.pricePerSwap = pricePerSwap;
+    }
+
+    public Integer getNumberOfSwaps() {
+        return numberOfSwaps;
+    }
+
+    public void setNumberOfSwaps(Integer numberOfSwaps) {
+        this.numberOfSwaps = numberOfSwaps;
+    }
+
     public List<Booking> getBookings() {
         return bookings;
     }
 
     public void setBookings(List<Booking> bookings) {
         this.bookings = bookings;
+    }
+
+    // Phương thức tính tổng tiền tự động
+    public void calculateTotalAmount() {
+        if (pricePerSwap != null && numberOfSwaps != null) {
+            this.totalAmount = pricePerSwap * numberOfSwaps;
+        }
     }
 }

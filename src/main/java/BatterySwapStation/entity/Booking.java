@@ -33,6 +33,14 @@ public class Booking {
     @JoinColumn(name = "VehicleId", nullable = false)
     private Vehicle vehicle;
 
+    // Lưu loại xe để không phải join với Vehicle mỗi lần query
+    @Column(name = "vehicletype", length = 50)
+    private String vehicleType;
+
+    // Giá tiền cho booking này (sẽ được tính vào invoice)
+    @Column(name = "amount")
+    private Double amount;
+
     // Các cột thời gian cố định (DATE + TIME) - KHÔNG CÓ NANO GIÂY
     @Column(name = "bookingdate", nullable = false)
     private LocalDate bookingDate;
@@ -40,8 +48,17 @@ public class Booking {
     @Column(name = "timeslot", nullable = false)
     private LocalTime timeSlot;
 
+    // Enum cho trạng thái booking
+    public enum BookingStatus {
+        PENDING,    // Đang chờ xác nhận
+        CONFIRMED,  // Đã xác nhận
+        CANCELLED,  // Đã hủy
+        COMPLETED   // Đã hoàn thành
+    }
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "bookingstatus", nullable = false, length = 20)
-    private String bookingStatus = "PENDING";
+    private BookingStatus bookingStatus = BookingStatus.PENDING;
 
     @Column(name = "CompletedTime")
     private LocalDate completedTime;

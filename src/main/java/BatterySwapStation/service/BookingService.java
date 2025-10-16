@@ -77,14 +77,22 @@ public class BookingService {
             throw new IllegalStateException("Khung giờ này đã có người đặt trước.");
         }
 
+        // Tính giá tiền dựa trên loại xe (giá mặc định: 15,000 VNĐ)
+        Double bookingAmount = 15000.0;
+
+        // Lấy vehicleType từ vehicle
+        String vehicleTypeStr = vehicle.getVehicleType() != null ? vehicle.getVehicleType().toString() : "UNKNOWN";
+
         // Tạo đặt chỗ mới
         Booking booking = Booking.builder()
                 .user(user)
                 .station(station)
                 .vehicle(vehicle)
+                .vehicleType(vehicleTypeStr) // Lưu loại xe
+                .amount(bookingAmount) // Lưu giá tiền
                 .bookingDate(request.getBookingDate())
                 .timeSlot(timeSlot)
-                .bookingStatus("PENDING")
+                .bookingStatus(Booking.BookingStatus.PENDING)  // Sử dụng enum
                 .notes("Đặt lịch qua API")
                 .build();
         Booking savedBooking = bookingRepository.save(booking);
@@ -136,16 +144,16 @@ public class BookingService {
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt đặt pin với mã: " + request.getBookingId()));
 
         // Kiểm tra đặt chỗ có thể hủy không
-        if ("CANCELLED".equals(booking.getBookingStatus())) {
+        if (Booking.BookingStatus.CANCELLED.equals(booking.getBookingStatus())) {
             throw new IllegalStateException("Lượt đặt pin này đã bị hủy trước đó.");
         }
 
-        if ("COMPLETED".equals(booking.getBookingStatus())) {
+        if (Booking.BookingStatus.COMPLETED.equals(booking.getBookingStatus())) {
             throw new IllegalStateException("Không thể hủy lượt đặt pin đã hoàn thành.");
         }
 
         // Hủy đặt chỗ
-        booking.setBookingStatus("CANCELLED");
+        booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
         Booking savedBooking = bookingRepository.save(booking);
 
         return convertToResponse(savedBooking);
@@ -156,10 +164,16 @@ public class BookingService {
      */
     @Transactional(readOnly = true)
     public List<BookingResponse> getBookingsByStatus(String status) {
-        List<Booking> bookings = bookingRepository.findByBookingStatus(status);
-        return bookings.stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        // Chuyển đổi String sang enum
+        try {
+            Booking.BookingStatus bookingStatus = Booking.BookingStatus.valueOf(status.toUpperCase());
+            List<Booking> bookings = bookingRepository.findByBookingStatus(bookingStatus);
+            return bookings.stream()
+                    .map(this::convertToResponse)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ: " + status + ". Các trạng thái hợp lệ: PENDING, CONFIRMED, CANCELLED, COMPLETED");
+        }
     }
 
     /**
@@ -183,7 +197,14 @@ public class BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt đặt pin với mã: " + bookingId));
 
-        booking.setBookingStatus(newStatus);
+        // Chuyển đổi String sang enum
+        try {
+            Booking.BookingStatus status = Booking.BookingStatus.valueOf(newStatus.toUpperCase());
+            booking.setBookingStatus(status);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ: " + newStatus + ". Các trạng thái hợp lệ: PENDING, CONFIRMED, CANCELLED, COMPLETED");
+        }
+
         Booking savedBooking = bookingRepository.save(booking);
 
         return convertToResponse(savedBooking);
@@ -217,10 +238,14 @@ public class BookingService {
             response.setVehicleVin(booking.getVehicle().getVIN());
         }
 
+        // Thêm vehicleType và amount
+        response.setVehicleType(booking.getVehicleType());
+        response.setAmount(booking.getAmount());
+
         // Sử dụng bookingDate và timeSlot trực tiếp
         response.setBookingDate(booking.getBookingDate());
         response.setTimeSlot(booking.getTimeSlot());
-        response.setBookingStatus(booking.getBookingStatus());
+        response.setBookingStatus(booking.getBookingStatus().toString());  // Chuyển enum sang String
 
         // TODO: Thêm mapping các mục pin
         // TODO: Thêm mapping thông tin thanh toán
