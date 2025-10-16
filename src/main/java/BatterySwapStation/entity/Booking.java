@@ -1,5 +1,6 @@
 package BatterySwapStation.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
@@ -19,46 +20,55 @@ public class Booking {
     @Column(name = "BookingId")
     private Long bookingId;
 
-    // N-1: 1 User có nhiều Booking
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "UserId", nullable = false)
+    @JsonIgnore // Tránh serialize toàn bộ User object
     private User user;
 
-    // N-1: 1 Station có nhiều Booking
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "StationId", nullable = false)
+    @JsonIgnore // Tránh serialize toàn bộ Station object
     private Station station;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "VehicleId", nullable = false)
+    @JsonIgnore // Tránh serialize toàn bộ Vehicle object
     private Vehicle vehicle;
 
-    // Lưu loại xe để không phải join với Vehicle mỗi lần query
     @Column(name = "vehicletype", length = 50)
     private String vehicleType;
 
-    // Giá tiền cho booking này (sẽ được tính vào invoice)
     @Column(name = "amount")
     private Double amount;
 
-    // Các cột thời gian cố định (DATE + TIME) - KHÔNG CÓ NANO GIÂY
     @Column(name = "bookingdate", nullable = false)
     private LocalDate bookingDate;
 
     @Column(name = "timeslot", nullable = false)
     private LocalTime timeSlot;
 
-    // Enum cho trạng thái booking
     public enum BookingStatus {
-        PENDING,    // Đang chờ xác nhận
-        CONFIRMED,  // Đã xác nhận
-        CANCELLED,  // Đã hủy
-        COMPLETED   // Đã hoàn thành
+        PENDING,
+        CONFIRMED,
+        CANCELLED,
+        COMPLETED
     }
 
     @Enumerated(EnumType.STRING)
     @Column(name = "bookingstatus", nullable = false, length = 20)
     private BookingStatus bookingStatus = BookingStatus.PENDING;
+
+    // Thêm enum PaymentStatus
+    public enum PaymentStatus {
+        PENDING,  // Chờ thanh toán
+        PAID,     // Đã thanh toán
+        FAILED    // Thanh toán thất bại
+    }
+
+    // Thêm trường paymentStatus - CHO PHÉP NULL ĐỂ TƯƠNG THÍCH VỚI DỮ LIỆU CŨ
+    @Enumerated(EnumType.STRING)
+    @Column(name = "paymentstatus", nullable = true, length = 20) // Đổi từ false thành true
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(name = "CompletedTime")
     private LocalDate completedTime;
@@ -69,12 +79,12 @@ public class Booking {
     @Column(name = "Notes", length = 1000)
     private String notes;
 
-    // Relationships
     @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore // Tránh serialize Payment object
     private Payment payment;
 
-    // N-1: 1 Invoice có nhiều Booking
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "InvoiceId")
+    @JsonIgnore // Tránh serialize Invoice object
     private Invoice invoice;
 }

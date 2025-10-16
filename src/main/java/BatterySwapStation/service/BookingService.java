@@ -77,8 +77,8 @@ public class BookingService {
             throw new IllegalStateException("Khung giờ này đã có người đặt trước.");
         }
 
-        // Tính giá tiền dựa trên loại xe (giá mặc định: 15,000 VNĐ)
-        Double bookingAmount = 15000.0;
+        // Tính giá tiền dựa trên loại pin của xe - SỬ DỤNG GIÁ THỰC TẾ TỪ BATTERY ENTITY
+        Double bookingAmount = calculateBookingAmountByVehicleBatteryType(vehicle);
 
         // Lấy vehicleType từ vehicle
         String vehicleTypeStr = vehicle.getVehicleType() != null ? vehicle.getVehicleType().toString() : "UNKNOWN";
@@ -93,6 +93,7 @@ public class BookingService {
                 .bookingDate(request.getBookingDate())
                 .timeSlot(timeSlot)
                 .bookingStatus(Booking.BookingStatus.PENDING)  // Sử dụng enum
+                .paymentStatus(Booking.PaymentStatus.PENDING)  // Thêm trạng thái thanh toán
                 .notes("Đặt lịch qua API")
                 .build();
         Booking savedBooking = bookingRepository.save(booking);
@@ -102,7 +103,16 @@ public class BookingService {
             // TODO: Triển khai logic các mục pin
         }
 
-        return convertToResponse(savedBooking);
+        // Tạo thông báo thành công khi tạo booking với tổng tiền
+        BookingResponse response = convertToResponse(savedBooking);
+        String createMessage = String.format(
+            "Booking #%d được tạo thành công! Tổng tiền: %.0f VND",
+            savedBooking.getBookingId(),
+            savedBooking.getAmount()
+        );
+        response.setMessage(createMessage);
+
+        return response;
     }
 
     /**
@@ -152,11 +162,36 @@ public class BookingService {
             throw new IllegalStateException("Không thể hủy lượt đặt pin đã hoàn thành.");
         }
 
-        // Hủy đặt chỗ
+        // Kiểm tra thời gian hủy: phải trước 1 tiếng so với thời gian đặt lịch
+        LocalDateTime scheduledDateTime = LocalDateTime.of(booking.getBookingDate(), booking.getTimeSlot());
+        LocalDateTime currentDateTime = LocalDateTime.now();
+        LocalDateTime minimumCancelTime = scheduledDateTime.minusHours(1);
+
+        if (currentDateTime.isAfter(minimumCancelTime)) {
+            throw new IllegalStateException(
+                String.format("Không thể hủy booking. Chỉ có thể hủy trước ít nhất 1 tiếng so với thời gian đặt lịch (%s %s). " +
+                             "Thời gian giới hạn hủy là: %s",
+                    booking.getBookingDate(),
+                    booking.getTimeSlot(),
+                    minimumCancelTime)
+            );
+        }
+
+        // Hủy đặt chỗ và lưu lý do hủy
         booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+        booking.setCancellationReason(request.getCancelReason()); // Lưu lý do hủy
         Booking savedBooking = bookingRepository.save(booking);
 
-        return convertToResponse(savedBooking);
+        // Tạo response với message
+        BookingResponse response = convertToResponse(savedBooking);
+        String cancelMessage = String.format(
+            "Booking #%d đã được hủy thành công! Lý do: %s",
+            savedBooking.getBookingId(),
+            request.getCancelReason() != null ? request.getCancelReason() : "Không có lý do"
+        );
+        response.setMessage(cancelMessage);
+
+        return response;
     }
 
     /**
@@ -222,6 +257,67 @@ public class BookingService {
     }
 
     /**
+     * Xác nhận thanh toán cho booking với thông báo
+     */
+    public BookingResponse confirmPayment(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt đặt pin với mã: " + bookingId));
+
+        if (booking.getPaymentStatus() == Booking.PaymentStatus.PAID) {
+            throw new IllegalStateException("Booking này đã được thanh toán rồi.");
+        }
+
+        // Cập nhật trạng thái thanh toán và booking
+        booking.setPaymentStatus(Booking.PaymentStatus.PAID);
+        booking.setBookingStatus(Booking.BookingStatus.CONFIRMED);
+
+        Booking savedBooking = bookingRepository.save(booking);
+
+        // Tạo thông báo thanh toán thành công
+        String paymentMessage = String.format(
+            "Thanh toán thành công cho Booking #%d. Số tiền: %.0f VND",
+            booking.getBookingId(),
+            booking.getAmount()
+        );
+
+        BookingResponse response = convertToResponse(savedBooking);
+        response.setMessage(paymentMessage); // Thêm message vào response
+
+        return response;
+    }
+
+    /**
+     * Hoàn thành booking và tạo invoice với thông báo
+     */
+    public BookingResponse completeBookingWithInvoice(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt đặt pin v��i mã: " + bookingId));
+
+        // Kiểm tra booking đã thanh toán chưa
+        if (booking.getPaymentStatus() != Booking.PaymentStatus.PAID) {
+            throw new IllegalStateException("Booking phải được thanh toán trước khi hoàn thành.");
+        }
+
+        // Cập nhật trạng thái booking thành COMPLETED
+        booking.setBookingStatus(Booking.BookingStatus.COMPLETED);
+        booking.setCompletedTime(LocalDate.now());
+
+        Booking savedBooking = bookingRepository.save(booking);
+
+        // Tạo thông báo thành công
+        String successMessage = String.format(
+            "Booking #%d được hoàn thành thành công. Tổng tiền: %.0f VND",
+            booking.getBookingId(),
+            booking.getAmount()
+        );
+
+        BookingResponse response = convertToResponse(savedBooking);
+        response.setMessage(successMessage); // Thêm message vào response
+
+        return response;
+    }
+
+    /**
      * Chuyển đổi Booking entity thành BookingResponse DTO
      */
     private BookingResponse convertToResponse(Booking booking) {
@@ -245,11 +341,39 @@ public class BookingService {
         // Sử dụng bookingDate và timeSlot trực tiếp
         response.setBookingDate(booking.getBookingDate());
         response.setTimeSlot(booking.getTimeSlot());
-        response.setBookingStatus(booking.getBookingStatus().toString());  // Chuyển enum sang String
+
+        // Xử lý null cho bookingStatus
+        response.setBookingStatus(booking.getBookingStatus() != null ?
+            booking.getBookingStatus().toString() : "PENDING");
+
+        // Xử lý null cho paymentStatus
+        response.setPaymentStatus(booking.getPaymentStatus() != null ?
+            booking.getPaymentStatus().toString() : "PENDING");
 
         // TODO: Thêm mapping các mục pin
         // TODO: Thêm mapping thông tin thanh toán
 
         return response;
+    }
+
+    /**
+     * Tính toán giá tiền đặt chỗ dựa trên loại pin của xe
+     */
+    private Double calculateBookingAmountByVehicleBatteryType(Vehicle vehicle) {
+        if (vehicle == null || vehicle.getBatteryType() == null) {
+            return 25000.0; // Giá mặc định nếu không có thông tin
+        }
+
+        // Sử dụng logic giá từ Battery entity để đảm bảo nhất quán
+        switch (vehicle.getBatteryType()) {
+            case LITHIUM_ION:
+                return 30000.0; // 30k cho Lithium Ion
+            case NICKEL_METAL_HYDRIDE:
+                return 25000.0; // 25k cho Nickel Metal Hydride
+            case LEAD_ACID:
+                return 20000.0; // 20k cho Lead Acid
+            default:
+                return 25000.0; // Giá mặc định
+        }
     }
 }

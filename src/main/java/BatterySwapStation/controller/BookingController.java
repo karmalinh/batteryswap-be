@@ -2,6 +2,12 @@ package BatterySwapStation.controller;
 
 import BatterySwapStation.dto.*;
 import BatterySwapStation.service.BookingService;
+import BatterySwapStation.service.InvoiceService;
+import BatterySwapStation.entity.Invoice;
+import BatterySwapStation.entity.Booking;
+import BatterySwapStation.entity.Battery;
+import BatterySwapStation.repository.BookingRepository;
+import BatterySwapStation.repository.BatteryRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -9,7 +15,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -18,6 +26,9 @@ import java.util.List;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final InvoiceService invoiceService;
+    private final BookingRepository bookingRepository;
+    private final BatteryRepository batteryRepository;
 
     @PostMapping
     @Operation(summary = "Tạo booking mới", description = "Tạo một booking mới cho việc thay pin")
@@ -136,6 +147,199 @@ public class BookingController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(new ApiResponseDto(false, "Lỗi lấy booking: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/createinvoice")
+    @Operation(summary = "Tạo invoice từ danh sách pin", description = "Tạo invoice ngay khi user chọn pin, trả về invoiceId và tổng tiền")
+    public ResponseEntity<Map<String, Object>> createInvoiceFromBatteries(
+            @RequestParam @Parameter(description = "ID của user") String userId,
+            @RequestBody List<String> batteryIds) {
+        try {
+            // Tính tổng tiền từ danh sách pin
+            double totalAmount = 0.0;
+            List<Map<String, Object>> batteryDetails = new ArrayList<>();
+
+            for (String batteryId : batteryIds) {
+                // Lấy battery từ database
+                Battery battery = batteryRepository.findById(batteryId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy pin: " + batteryId));
+
+                // Kiểm tra pin có sẵn không
+                if (!battery.isAvailableForBooking()) {
+                    throw new RuntimeException("Pin " + batteryId + " không khả dụng");
+                }
+
+                // Tính tiền cho pin - SỬ DỤNG GIÁ THỰC TỪ BATTERY
+                double batteryAmount = battery.getCalculatedPrice();
+                totalAmount += batteryAmount;
+
+                // Cập nhật trạng thái pin sang IN_USE
+                battery.setBatteryStatus(Battery.BatteryStatus.IN_USE);
+                batteryRepository.save(battery);
+
+                batteryDetails.add(Map.of(
+                    "batteryId", battery.getBatteryId(),
+                    "batteryType", battery.getBatteryType().toString(),
+                    "price", batteryAmount,
+                    "stationId", battery.getStationId()
+                ));
+            }
+
+            // Tạo invoice với tổng tiền thực tế
+            Invoice invoice = new Invoice();
+            invoice.setUserId(userId);
+            invoice.setTotalAmount(totalAmount);
+            invoice.setPricePerSwap(totalAmount / batteryIds.size());
+            invoice.setNumberOfSwaps(batteryIds.size());
+            invoice.setCreatedDate(java.time.LocalDate.now());
+
+            Invoice savedInvoice = invoiceService.createInvoice(invoice);
+
+            // Trả về response đơn giản
+            return ResponseEntity.ok(Map.of(
+                "invoiceId", savedInvoice.getInvoiceId(),
+                "userId", savedInvoice.getUserId(),
+                "totalAmount", savedInvoice.getTotalAmount(),
+                "pricePerSwap", savedInvoice.getPricePerSwap(),
+                "numberOfSwaps", savedInvoice.getNumberOfSwaps(),
+                "createdDate", savedInvoice.getCreatedDate(),
+                "status", "PENDING",
+                "batteries", batteryDetails
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Tạo invoice thất bại",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/{batteryId}/schedule")
+    @Operation(summary = "Cập nhật lịch trình cho pin", description = "Cập nhật ngày giờ sử dụng cho pin")
+    public ResponseEntity<Map<String, Object>> updateBatterySchedule(
+            @PathVariable @Parameter(description = "ID của pin") String batteryId,
+            @RequestParam @Parameter(description = "Ngày sử dụng") String date,
+            @RequestParam @Parameter(description = "Giờ sử dụng") String time,
+            @RequestParam @Parameter(description = "ID của user") String userId) {
+        try {
+            // Lấy pin
+            Battery battery = batteryRepository.findById(batteryId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy pin"));
+
+            // Tạo booking với thông tin lịch
+            BookingRequest request = new BookingRequest();
+            request.setUserId(userId);
+            request.setStationId(battery.getStationId());
+            request.setBookingDate(java.time.LocalDate.parse(date));
+            request.setTimeSlot(time);
+
+            BookingResponse booking = bookingService.createBooking(request);
+
+            return ResponseEntity.ok(Map.of(
+                "message", "Cập nhật lịch thành công!",
+                "batteryId", battery.getBatteryId(),
+                "bookingId", booking.getBookingId(),
+                "date", date,
+                "time", time
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Cập nhật lịch thất bại: " + e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/batteries/available/{stationId}")
+    @Operation(summary = "Lấy danh sách pin khả dụng", description = "Lấy tất cả pin khả dụng tại một station")
+    public ResponseEntity<Map<String, Object>> getAvailableBatteries(
+            @PathVariable @Parameter(description = "ID của station") Integer stationId) {
+        try {
+            List<Battery> batteries = batteryRepository.findByStationIdAndIsActiveTrue(stationId);
+            List<Map<String, Object>> availableBatteries = new ArrayList<>();
+
+            for (Battery battery : batteries) {
+                if (battery.isAvailableForBooking()) {
+                    availableBatteries.add(Map.of(
+                        "batteryId", battery.getBatteryId(),
+                        "batteryType", battery.getBatteryType().toString(),
+                        "price", battery.getCalculatedPrice(),
+                        "stateOfHealth", battery.getStateOfHealth(),
+                        "status", battery.getBatteryStatus().toString()
+                    ));
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "stationId", stationId,
+                "availableBatteries", availableBatteries,
+                "count", availableBatteries.size()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Lỗi lấy danh sách pin: " + e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/batteries/{batteryId}/status")
+    @Operation(summary = "Cập nhật trạng thái pin", description = "Cập nhật trạng thái của pin (AVAILABLE, IN_USE, CHARGING, DAMAGED)")
+    public ResponseEntity<Map<String, Object>> updateBatteryStatus(
+            @PathVariable @Parameter(description = "ID của pin") String batteryId,
+            @RequestParam @Parameter(description = "Trạng thái mới") String status) {
+        try {
+            Battery battery = batteryRepository.findById(batteryId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy pin"));
+
+            // Validate status
+            Battery.BatteryStatus newStatus = Battery.BatteryStatus.valueOf(status.toUpperCase());
+            battery.setBatteryStatus(newStatus);
+
+            Battery savedBattery = batteryRepository.save(battery);
+
+            return ResponseEntity.ok(Map.of(
+                "message", "Cập nhật trạng thái pin thành công!",
+                "batteryId", savedBattery.getBatteryId(),
+                "newStatus", savedBattery.getBatteryStatus().toString()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Cập nhật trạng thái pin thất bại: " + e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/{bookingId}/confirm-payment")
+    @Operation(summary = "Xác nhận thanh toán và tạo invoice", description = "Xác nhận thanh toán cho booking và tự động tạo invoice")
+    public ResponseEntity<Map<String, Object>> confirmPaymentAndCreateInvoice(
+            @PathVariable @Parameter(description = "ID của booking") Long bookingId) {
+        try {
+            // Xác nhận thanh toán
+            BookingResponse bookingResponse = bookingService.confirmPayment(bookingId);
+
+            // Lấy booking entity để tạo invoice
+            Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy booking"));
+
+            // Tạo invoice sau khi thanh toán thành công
+            Invoice invoice = invoiceService.createInvoiceForBooking(booking);
+
+            // Trả về response đơn giản
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Thanh toán và tạo invoice thành công",
+                "invoiceId", invoice.getInvoiceId(),
+                "totalAmount", invoice.getTotalAmount(),
+                "bookingId", bookingResponse.getBookingId(),
+                "paymentStatus", bookingResponse.getPaymentStatus(),
+                "bookingStatus", bookingResponse.getBookingStatus()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "Xác nhận thanh toán thất bại",
+                "message", e.getMessage()
+            ));
         }
     }
 }
