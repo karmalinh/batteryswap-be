@@ -146,6 +146,63 @@ public class SystemPriceController {
         }
     }
 
+    @GetMapping("/calculate")
+    @Operation(summary = "Tính tổng tiền", description = "Tính tổng tiền dựa trên số lượng lượt đổi pin")
+    public ResponseEntity<Map<String, Object>> calculateTotalAmount(
+            @RequestParam Integer quantity) {
+        try {
+            if (quantity == null || quantity <= 0) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Số lượng phải lớn hơn 0"
+                ));
+            }
+
+            Double currentPrice = systemPriceService.getCurrentPrice();
+            Double totalAmount = currentPrice * quantity;
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "quantity", quantity,
+                "pricePerSwap", currentPrice,
+                "totalAmount", totalAmount
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "Lỗi khi tính tổng tiền"
+            ));
+        }
+    }
+
+    @PostMapping("/calculate")
+    @Operation(summary = "Tính tổng tiền (POST)", description = "Tính tổng tiền dựa trên số lượng lượt đổi pin")
+    public ResponseEntity<Map<String, Object>> calculateTotalAmountPost(@RequestBody CalculateRequest request) {
+        try {
+            if (request.getQuantity() == null || request.getQuantity() <= 0) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Số lượng phải lớn hơn 0"
+                ));
+            }
+
+            Double currentPrice = systemPriceService.getCurrentPrice();
+            Double totalAmount = currentPrice * request.getQuantity();
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "quantity", request.getQuantity(),
+                "pricePerSwap", currentPrice,
+                "totalAmount", totalAmount
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "Lỗi khi tính tổng tiền"
+            ));
+        }
+    }
+
     // DTO cho request
     public static class UpdatePriceRequest {
         private Double price;
@@ -170,6 +227,37 @@ public class SystemPriceController {
 
         public String getDescription() {
             return description != null ? description : "Cập nhật giá hệ thống";
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+    }
+
+    // DTO cho calculate request
+    public static class CalculateRequest {
+        private Integer quantity;
+        private String description;
+
+        // Constructors
+        public CalculateRequest() {}
+
+        public CalculateRequest(Integer quantity, String description) {
+            this.quantity = quantity;
+            this.description = description;
+        }
+
+        // Getters and setters
+        public Integer getQuantity() {
+            return quantity;
+        }
+
+        public void setQuantity(Integer quantity) {
+            this.quantity = quantity;
+        }
+
+        public String getDescription() {
+            return description;
         }
 
         public void setDescription(String description) {
