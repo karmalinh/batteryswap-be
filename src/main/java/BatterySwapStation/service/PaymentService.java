@@ -32,22 +32,22 @@ public class PaymentService {
     public String createVnPayPaymentUrlByInvoice(
             VnPayCreatePaymentRequest req, HttpServletRequest http) {
 
-        // 1️⃣ Kiểm tra invoice tồn tại
-        Invoice invoice = invoiceRepository.findById(req.getInvoiceId())
+        //  Kiểm tra invoice tồn tại
+        Invoice invoice = invoiceRepository.findByIdWithoutBookings(req.getInvoiceId())
                 .orElseThrow(() -> new IllegalArgumentException("Invoice not found: " + req.getInvoiceId()));
 
-        // 2️⃣ Lấy tổng tiền hóa đơn
+        //  Lấy tổng tiền hóa đơn
         double amount = invoice.getTotalAmount() == null ? 0d : invoice.getTotalAmount();
         if (amount <= 0) throw new IllegalArgumentException("Invoice totalAmount must be > 0");
 
-        // 3️⃣ Chặn nếu hóa đơn đã thanh toán
+        //  Chặn nếu hóa đơn đã thanh toán
         boolean alreadyPaid = paymentRepository.existsByInvoiceAndPaymentStatus(
                 invoice, Payment.PaymentStatus.SUCCESS);
         if (alreadyPaid) {
             throw new IllegalStateException("Invoice already paid");
         }
 
-        // 4️⃣ Sinh các thông tin cần cho VNPAY
+        //  Sinh các thông tin cần cho VNPAY
         String ipAddr = VnPayUtils.getClientIp(http);
         String txnRef = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         long amountTimes100 = Math.round(amount) * 100L;
@@ -70,7 +70,7 @@ public class PaymentService {
         params.put("vnp_OrderType", (req.getOrderType() == null) ? "other" : req.getOrderType());
         params.put("vnp_Locale", (req.getLocale() == null) ? props.getLocale() : req.getLocale());
         params.put("vnp_ReturnUrl", props.getReturnUrl());
-        params.put("vnp_IpnUrl", props.getIpnUrl()); // ✅ thêm dòng này
+        params.put("vnp_IpnUrl", props.getIpnUrl());
         params.put("vnp_IpAddr", ipAddr);
         params.put("vnp_CreateDate", vnpCreateDate);
         params.put("vnp_ExpireDate", vnpExpireDate);
@@ -79,7 +79,7 @@ public class PaymentService {
             params.put("vnp_BankCode", req.getBankCode());
         }
 
-        // 5️⃣ Lưu Payment trạng thái PENDING
+        // Lưu Payment trạng thái PENDING
         Payment payment = Payment.builder()
                 .invoice(invoice)
                 .amount(amount)
@@ -92,7 +92,7 @@ public class PaymentService {
 
         paymentRepository.save(payment);
 
-        // 6️⃣ Sinh URL thanh toán
+        // 6Sinh URL thanh toán
         return VnPayUtils.buildPaymentUrl(props.getPayUrl(), params, props.getHashSecret());
     }
 
