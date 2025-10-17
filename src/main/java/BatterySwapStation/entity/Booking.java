@@ -48,27 +48,16 @@ public class Booking {
     private LocalTime timeSlot;
 
     public enum BookingStatus {
-        PENDING,
-        CONFIRMED,
-        CANCELLED,
-        COMPLETED
+        PENDINGPAYMENT,  // Chờ thanh toán
+        PENDINGSWAPPING, // Đã thanh toán, chờ đổi pin
+        CANCELLED,       // Đã hủy
+        COMPLETED        // Hoàn thành
     }
 
     @Enumerated(EnumType.STRING)
     @Column(name = "bookingstatus", nullable = false, length = 20)
-    private BookingStatus bookingStatus = BookingStatus.PENDING;
+    private BookingStatus bookingStatus = BookingStatus.PENDINGPAYMENT;
 
-    // Thêm enum PaymentStatus
-    public enum PaymentStatus {
-        PENDING,  // Chờ thanh toán
-        PAID,     // Đã thanh toán
-        FAILED    // Thanh toán thất bại
-    }
-
-    // Thêm trường paymentStatus - CHO PHÉP NULL ĐỂ TƯƠNG THÍCH VỚI DỮ LIỆU CŨ
-    @Enumerated(EnumType.STRING)
-    @Column(name = "paymentstatus", nullable = true, length = 20) // Đổi từ false thành true
-    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(name = "CompletedTime")
     private LocalDate completedTime;
@@ -78,6 +67,9 @@ public class Booking {
 
     @Column(name = "Notes", length = 1000)
     private String notes;
+
+    @Column(name = "BatteryItems", length = 2000)
+    private String batteryItems; // Lưu danh sách ID pin dưới dạng JSON string
 
 
     @ManyToOne(fetch = FetchType.LAZY)

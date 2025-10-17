@@ -88,16 +88,16 @@ public class BookingController {
     }
 
     @GetMapping("/status/{status}")
-    @Operation(summary = "Lấy booking theo trạng thái", description = "Lấy danh sách booking theo trạng thái cụ thể (PENDING, CONFIRMED, CANCELLED, COMPLETED)")
+    @Operation(summary = "Lấy booking theo trạng thái", description = "Lấy danh sách booking theo trạng thái cụ thể (PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED)")
     public ResponseEntity<ApiResponseDto> getBookingsByStatus(
-            @PathVariable @Parameter(description = "Trạng thái booking (PENDING, CONFIRMED, CANCELLED, COMPLETED)")
+            @PathVariable @Parameter(description = "Trạng thái booking (PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED)")
             String status) {
         try {
             // Validate status trước khi gọi service
             String normalizedStatus = status.toUpperCase();
-            if (!normalizedStatus.matches("PENDING|CONFIRMED|CANCELLED|COMPLETED")) {
+            if (!normalizedStatus.matches("PENDINGPAYMENT|PENDINGSWAPPING|CANCELLED|COMPLETED")) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponseDto(false, "Trạng thái không hợp lệ. Chỉ chấp nhận: PENDING, CONFIRMED, CANCELLED, COMPLETED"));
+                        .body(new ApiResponseDto(false, "Trạng thái không hợp lệ. Chỉ chấp nhận: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED"));
             }
 
             List<BookingResponse> bookings = bookingService.getBookingsByStatus(normalizedStatus);
@@ -122,16 +122,16 @@ public class BookingController {
     }
 
     @PutMapping("/{bookingId}/status")
-    @Operation(summary = "Cập nhật trạng thái booking", description = "Cập nhật trạng thái của một booking (dành cho admin/staff). Trạng thái: PENDING, CONFIRMED, CANCELLED, COMPLETED")
+    @Operation(summary = "Cập nhật trạng thái booking", description = "Cập nhật trạng thái của một booking (dành cho admin/staff). Trạng thái: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED")
     public ResponseEntity<ApiResponseDto> updateBookingStatus(
             @PathVariable @Parameter(description = "ID của booking") Long bookingId,
-            @RequestParam @Parameter(description = "Trạng thái mới (PENDING, CONFIRMED, CANCELLED, COMPLETED)") String status) {
+            @RequestParam @Parameter(description = "Trạng thái mới (PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED)") String status) {
         try {
             // Validate và normalize status
             String normalizedStatus = status.toUpperCase();
-            if (!normalizedStatus.matches("PENDING|CONFIRMED|CANCELLED|COMPLETED")) {
+            if (!normalizedStatus.matches("PENDINGPAYMENT|PENDINGSWAPPING|CANCELLED|COMPLETED")) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponseDto(false, "Trạng thái không hợp lệ. Chỉ chấp nhận: PENDING, CONFIRMED, CANCELLED, COMPLETED"));
+                        .body(new ApiResponseDto(false, "Trạng thái không hợp lệ. Chỉ chấp nhận: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED"));
             }
 
             BookingResponse response = bookingService.updateBookingStatus(bookingId, normalizedStatus);
@@ -227,11 +227,6 @@ public class BookingController {
                 BookingRequest bookingRequest = new BookingRequest();
                 bookingRequest.setVehicleId(vehicleId);
                 bookingRequest.setStationId(stationId);
-
-                // Set battery items
-                List<BookingRequest.BatteryItemRequest> batteryItems = new ArrayList<>();
-                batteryItems.add(new BookingRequest.BatteryItemRequest(batteryType, pinCount));
-                bookingRequest.setBatteryItems(batteryItems);
 
                 // Set ngày giờ tạm thời
                 bookingRequest.setBookingDate(java.time.LocalDate.now().plusDays(1));
@@ -506,10 +501,6 @@ public class BookingController {
             bookingRequest.setBookingDate(java.time.LocalDate.parse(date));
             bookingRequest.setTimeSlot(time);
 
-            // Set battery items
-            List<BookingRequest.BatteryItemRequest> batteryItems = new ArrayList<>();
-            batteryItems.add(new BookingRequest.BatteryItemRequest(batteryType, pinCount));
-            bookingRequest.setBatteryItems(batteryItems);
 
             // Tạo booking
             BookingResponse booking = bookingService.createBooking(bookingRequest);
@@ -802,6 +793,46 @@ public class BookingController {
                 "error", "Lỗi lấy danh sách loại pin",
                 "message", e.getMessage()
             ));
+        }
+    }
+
+    @PostMapping("/create-after-payment")
+    @Operation(summary = "Tạo booking sau khi thanh toán", description = "Tạo booking sau khi thanh toán đã hoàn thành - Flow mới")
+    public ResponseEntity<ApiResponseDto> createBookingAfterPayment(
+            @RequestBody BookingService.PaymentCompletedRequest request) {
+        try {
+            BookingResponse response = bookingService.createBookingAfterPayment(request);
+            return ResponseEntity.ok(new ApiResponseDto(true, "Tạo booking sau thanh toán thành công!", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponseDto(false, "Lỗi tạo booking sau thanh toán: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{bookingId}/complete-swapping")
+    @Operation(summary = "Hoàn thành đổi pin",
+               description = "Chuyển booking từ trạng thái PENDINGSWAPPING sang COMPLETED sau khi đổi pin thành công")
+    public ResponseEntity<ApiResponseDto> completeBatterySwapping(
+            @PathVariable @Parameter(description = "ID của booking") Long bookingId) {
+        try {
+            BookingResponse response = bookingService.completeBatterySwapping(bookingId);
+            return ResponseEntity.ok(new ApiResponseDto(true, response.getMessage(), response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponseDto(false, "Hoàn thành đổi pin thất bại: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{bookingId}/process-payment")
+    @Operation(summary = "Xử lý thanh toán booking", description = "Chuyển trạng thái booking từ PENDINGPAYMENT sang PENDINGSWAPPING")
+    public ResponseEntity<ApiResponseDto> processPayment(
+            @PathVariable Long bookingId) {
+        try {
+            BookingResponse response = bookingService.processPayment(bookingId);
+            return ResponseEntity.ok(new ApiResponseDto(true, "Xử lý thanh toán thành công!", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponseDto(false, "Xử lý thanh toán thất bại: " + e.getMessage()));
         }
     }
 }
