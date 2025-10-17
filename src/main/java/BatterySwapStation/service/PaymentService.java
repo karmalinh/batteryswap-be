@@ -28,7 +28,6 @@ public class PaymentService {
     private final InvoiceRepository invoiceRepository;
 
 
-
     @Transactional
     public String createVnPayPaymentUrlByInvoice(
             VnPayCreatePaymentRequest req, HttpServletRequest http) {
@@ -53,7 +52,6 @@ public class PaymentService {
         String txnRef = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         long amountTimes100 = Math.round(amount) * 100L;
 
-        // 🕒 SỬA Ở ĐÂY: Dùng múi giờ Việt Nam để đồng bộ với sandbox
         ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
         ZonedDateTime now = ZonedDateTime.now(zone);
 
@@ -72,6 +70,7 @@ public class PaymentService {
         params.put("vnp_OrderType", (req.getOrderType() == null) ? "other" : req.getOrderType());
         params.put("vnp_Locale", (req.getLocale() == null) ? props.getLocale() : req.getLocale());
         params.put("vnp_ReturnUrl", props.getReturnUrl());
+        params.put("vnp_IpnUrl", props.getIpnUrl()); // ✅ thêm dòng này
         params.put("vnp_IpAddr", ipAddr);
         params.put("vnp_CreateDate", vnpCreateDate);
         params.put("vnp_ExpireDate", vnpExpireDate);
@@ -80,16 +79,8 @@ public class PaymentService {
             params.put("vnp_BankCode", req.getBankCode());
         }
 
-// 5️⃣ Lưu Payment trạng thái PENDING
-        Booking representativeBooking = null;
-        if (invoice.getBookings() != null && !invoice.getBookings().isEmpty()) {
-            representativeBooking = invoice.getBookings().get(0); // ✅ booking đầu tiên trong invoice
-        } else {
-            throw new IllegalStateException("Invoice " + invoice.getInvoiceId() + " has no bookings linked");
-        }
-
+        // 5️⃣ Lưu Payment trạng thái PENDING
         Payment payment = Payment.builder()
-                .booking(representativeBooking) // ✅ Bắt buộc có vì BookingId NOT NULL
                 .invoice(invoice)
                 .amount(amount)
                 .paymentMethod(Payment.PaymentMethod.QR_BANKING)
@@ -104,7 +95,6 @@ public class PaymentService {
         // 6️⃣ Sinh URL thanh toán
         return VnPayUtils.buildPaymentUrl(props.getPayUrl(), params, props.getHashSecret());
     }
-
 
 
     /** 2️⃣ Xử lý IPN callback (VNPAY → BE) */
