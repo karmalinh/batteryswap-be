@@ -79,9 +79,6 @@ public class Booking {
     @Column(name = "Notes", length = 1000)
     private String notes;
 
-    @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore // Tránh serialize Payment object
-    private Payment payment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "InvoiceId")

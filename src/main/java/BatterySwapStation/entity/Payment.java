@@ -18,10 +18,6 @@ public class Payment {
     @Column(name = "PaymentId")
     private Long paymentId;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "BookingId", nullable = false)
-    private Booking booking;
-
     @Column(name = "Amount", nullable = false)
     private double amount;
 
