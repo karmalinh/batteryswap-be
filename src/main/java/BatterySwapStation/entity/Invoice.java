@@ -2,11 +2,15 @@ package BatterySwapStation.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Configurable;
+import BatterySwapStation.service.SystemPriceService;
 import java.time.LocalDate;
 import java.util.List;
 
 @Entity
 @Table(name = "Invoice")
+@Configurable // Cho phép dependency injection trong entity
 public class Invoice {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "invoice_seq")
@@ -28,13 +32,18 @@ public class Invoice {
     @Column(name = "totalamount")
     private Double totalAmount;
 
-    // Giá mỗi lần đổi pin (ví dụ: 15,000 VNĐ)
+    // Giá mỗi lần đổi pin - lấy trực tiếp từ SystemPrice
     @Column(name = "priceperswap")
-    private Double pricePerSwap = 15000.0;
+    private Double pricePerSwap;
 
     // Số lần đổi pin
     @Column(name = "numberofswaps")
     private Integer numberOfSwaps = 0;
+
+    // Dependency injection để lấy giá từ SystemPrice
+    @Autowired
+    @Transient
+    private SystemPriceService systemPriceService;
 
     // Trạng thái invoice
     public enum InvoiceStatus {
@@ -88,8 +97,12 @@ public class Invoice {
         this.totalAmount = totalAmount;
     }
 
+    // Override getPricePerSwap để lấy giá từ SystemPrice nếu chưa có
     public Double getPricePerSwap() {
-        return pricePerSwap;
+        if (this.pricePerSwap == null && systemPriceService != null) {
+            this.pricePerSwap = systemPriceService.getCurrentPrice();
+        }
+        return this.pricePerSwap != null ? this.pricePerSwap : 15000.0; // Fallback
     }
 
     public void setPricePerSwap(Double pricePerSwap) {
@@ -128,10 +141,31 @@ public class Invoice {
         this.invoiceStatus = invoiceStatus;
     }
 
-    // Phương thức tính tổng tiền tự động
+    // Method để cập nhật giá từ SystemPrice - sẽ được gọi từ service layer
+    public void updatePriceFromSystem(Double systemPrice) {
+        this.pricePerSwap = systemPrice != null ? systemPrice : 15000.0;
+    }
+
+    // Method để tự động lấy giá từ SystemPrice
+    public void loadCurrentSystemPrice() {
+        if (systemPriceService != null) {
+            this.pricePerSwap = systemPriceService.getCurrentPrice();
+        }
+    }
+
+    // Method để tính tổng tiền dựa trên số lần swap và giá hệ thống
     public void calculateTotalAmount() {
-        if (pricePerSwap != null && numberOfSwaps != null) {
-            this.totalAmount = pricePerSwap * numberOfSwaps;
+        Double currentPrice = getPricePerSwap(); // Sử dụng getter để tự động lấy giá
+        if (this.numberOfSwaps != null && currentPrice != null) {
+            this.totalAmount = this.numberOfSwaps * currentPrice;
+        }
+    }
+
+    @PrePersist
+    protected void onPrePersist() {
+        // Tự động lấy giá từ SystemPrice khi tạo mới
+        if (this.pricePerSwap == null) {
+            loadCurrentSystemPrice();
         }
     }
 }

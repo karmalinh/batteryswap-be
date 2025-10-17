@@ -24,6 +24,9 @@ public class InvoiceService {
     @Autowired
     private BookingRepository bookingRepository;
 
+    @Autowired
+    private SystemPriceService systemPriceService; // Thêm SystemPriceService
+
     /**
      * Lấy chi tiết invoice bao gồm thông tin các booking
      */

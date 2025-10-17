@@ -25,6 +25,7 @@ public class BookingService {
     private final UserRepository userRepository;
     private final StationRepository stationRepository;
     private final VehicleRepository vehicleRepository;
+    private final SystemPriceService systemPriceService; // Thêm SystemPriceService
 
     /**
      * Tạo đặt chỗ mới (giới hạn tối đa 1 xe, chỉ 1 trạm, ngày trong 2 ngày, khung giờ hợp lệ)
@@ -357,24 +358,36 @@ public class BookingService {
     }
 
     /**
-     * Tính toán giá tiền đặt chỗ dựa trên loại pin của xe
+     * Tính toán giá tiền đặt chỗ dựa trên SystemPrice - THỐNG NHẤT CHO TẤT CẢ
      */
     private Double calculateBookingAmountByVehicleBatteryType(Vehicle vehicle) {
-        if (vehicle == null || vehicle.getBatteryType() == null) {
-            return 25000.0; // Giá mặc định nếu không có thông tin
+        // Lấy giá thống nhất từ SystemPrice (không phân biệt loại pin)
+        double basePrice = systemPriceService.getCurrentPrice();
+
+        // Nhân với số lượng pin của xe (nếu có)
+        Integer batteryCount = vehicle.getBatteryCount();
+        if (batteryCount != null && batteryCount > 0) {
+            return basePrice * batteryCount;
         }
 
-        // Sử dụng logic giá từ Battery entity để đảm bảo nhất quán
-        switch (vehicle.getBatteryType()) {
-            case LITHIUM_ION:
-                return 30000.0; // 30k cho Lithium Ion
-            case NICKEL_METAL_HYDRIDE:
-                return 25000.0; // 25k cho Nickel Metal Hydride
-            case LEAD_ACID:
-                return 20000.0; // 20k cho Lead Acid
-            default:
-                return 25000.0; // Giá mặc định
+        return basePrice;
+    }
+
+    // Cập nhật method calculateBatteryPrice để sử dụng giá thống nhất
+    private double calculateBatteryPrice(String batteryType) {
+        // Bỏ qua batteryType vì giờ tất cả đều dùng chung 1 giá từ SystemPrice
+        return systemPriceService.getCurrentPrice();
+    }
+
+    // Method tính giá từ Battery object - ưu tiên custom price, fallback SystemPrice
+    private double calculateBatteryPrice(Battery battery) {
+        Double customPrice = battery.getCalculatedPrice();
+        if (customPrice != null) {
+            return customPrice;
         }
+
+        // Sử dụng giá thống nhất từ SystemPrice (không phân biệt loại pin)
+        return systemPriceService.getCurrentPrice();
     }
 
     /**

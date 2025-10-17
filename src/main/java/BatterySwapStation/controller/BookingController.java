@@ -3,6 +3,7 @@ package BatterySwapStation.controller;
 import BatterySwapStation.dto.*;
 import BatterySwapStation.service.BookingService;
 import BatterySwapStation.service.InvoiceService;
+import BatterySwapStation.service.SystemPriceService;
 import BatterySwapStation.entity.Invoice;
 import BatterySwapStation.entity.Booking;
 import BatterySwapStation.entity.Battery;
@@ -31,6 +32,7 @@ public class BookingController {
     private final InvoiceService invoiceService;
     private final BookingRepository bookingRepository;
     private final BatteryRepository batteryRepository;
+    private final SystemPriceService systemPriceService; // Thêm SystemPriceService
 
     @PostMapping
     @Operation(summary = "Tạo booking mới", description = "Tạo một booking mới cho việc thay pin")
@@ -760,16 +762,46 @@ public class BookingController {
         }
     }
 
+    // Thay thế method getBatteryPrice để sử dụng giá thống nhất từ SystemPrice
     private double getBatteryPrice(String batteryType) {
-        switch (batteryType.toUpperCase()) {
-            case "LITHIUM_ION":
-                return 25000.0;
-            case "NICKEL_METAL_HYDRIDE":
-                return 20000.0;
-            case "LEAD_ACID":
-                return 15000.0;
-            default:
-                return 25000.0;
+        // Bỏ qua batteryType vì giờ tất cả đều dùng chung 1 giá từ SystemPrice
+        return systemPriceService.getCurrentPrice();
+    }
+
+    // Cập nhật API để lấy giá thống nhất từ SystemPrice
+    @GetMapping("/battery-types")
+    @Operation(summary = "Lấy danh sách loại pin và giá", description = "Lấy tất cả loại pin - giá thống nhất từ SystemPrice")
+    public ResponseEntity<Map<String, Object>> getBatteryTypes() {
+        try {
+            Double systemPrice = systemPriceService.getCurrentPrice();
+            String priceInfo = systemPriceService.getCurrentPriceInfo();
+            List<Map<String, Object>> batteryTypes = new ArrayList<>();
+
+            // Tất cả loại pin đều có cùng 1 giá từ SystemPrice
+            for (Battery.BatteryType type : Battery.BatteryType.getAllTypes()) {
+                batteryTypes.add(Map.of(
+                    "type", type.name(),
+                    "displayName", type.getDisplayName(),
+                    "price", systemPrice, // Tất cả đều dùng giá thống nhất
+                    "systemRule", "Giá thống nhất cho tất cả loại pin"
+                ));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "batteryTypes", batteryTypes,
+                "total", batteryTypes.size(),
+                "systemPrice", systemPrice,
+                "priceInfo", priceInfo,
+                "source", "SystemPrice - Quy luật chung toàn dự án",
+                "rule", "Tất cả loại pin đều sử dụng cùng 1 giá: " + systemPrice + " VND"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "Lỗi lấy danh sách loại pin",
+                "message", e.getMessage()
+            ));
         }
     }
 }
