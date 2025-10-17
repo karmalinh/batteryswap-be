@@ -2,11 +2,14 @@ package BatterySwapStation.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.Data;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Configurable;
 import BatterySwapStation.service.SystemPriceService;
 import java.time.LocalDate;
 import java.util.List;
+@Data
 
 @Entity
 @Table(name = "Invoice")
@@ -32,9 +35,9 @@ public class Invoice {
     @Column(name = "totalamount")
     private Double totalAmount;
 
-    // Giá mỗi lần đổi pin - lấy trực tiếp từ SystemPrice
+    // Giá mỗi lần đổi pin (ví dụ: 15,000 VNĐ)
     @Column(name = "priceperswap")
-    private Double pricePerSwap;
+    private Double pricePerSwap = 15000.0;
 
     // Số lần đổi pin
     @Column(name = "numberofswaps")
@@ -97,12 +100,8 @@ public class Invoice {
         this.totalAmount = totalAmount;
     }
 
-    // Override getPricePerSwap để lấy giá từ SystemPrice nếu chưa có
     public Double getPricePerSwap() {
-        if (this.pricePerSwap == null && systemPriceService != null) {
-            this.pricePerSwap = systemPriceService.getCurrentPrice();
-        }
-        return this.pricePerSwap != null ? this.pricePerSwap : 15000.0; // Fallback
+        return pricePerSwap;
     }
 
     public void setPricePerSwap(Double pricePerSwap) {
