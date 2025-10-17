@@ -70,7 +70,6 @@ public class PaymentService {
         params.put("vnp_OrderType", (req.getOrderType() == null) ? "other" : req.getOrderType());
         params.put("vnp_Locale", (req.getLocale() == null) ? props.getLocale() : req.getLocale());
         params.put("vnp_ReturnUrl", props.getReturnUrl());
-        params.put("vnp_IpnUrl", props.getIpnUrl());
         params.put("vnp_IpAddr", ipAddr);
         params.put("vnp_CreateDate", vnpCreateDate);
         params.put("vnp_ExpireDate", vnpExpireDate);
@@ -166,6 +165,8 @@ public class PaymentService {
     /** 3️⃣ Xử lý return URL (hiển thị kết quả cho người dùng) */
     @Transactional
     public Map<String, Object> handleVnPayReturn(Map<String, String> query) {
+
+
         Map<String, Object> result = new HashMap<>();
         Map<String, String> fields = new HashMap<>(query);
 
