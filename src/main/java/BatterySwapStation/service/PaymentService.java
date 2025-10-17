@@ -2,16 +2,15 @@ package BatterySwapStation.service;
 
 import BatterySwapStation.config.VnPayProperties;
 import BatterySwapStation.dto.VnPayCreatePaymentRequest;
-import BatterySwapStation.entity.Booking;
+import BatterySwapStation.entity.Invoice;
 import BatterySwapStation.entity.Payment;
+import BatterySwapStation.repository.InvoiceRepository;
 import BatterySwapStation.repository.PaymentRepository;
 import BatterySwapStation.utils.VnPayUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import BatterySwapStation.repository.InvoiceRepository;
-import BatterySwapStation.entity.Invoice;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -27,34 +26,30 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
 
-
     @Transactional
     public String createVnPayPaymentUrlByInvoice(
             VnPayCreatePaymentRequest req, HttpServletRequest http) {
 
-        //  Kiểm tra invoice tồn tại
+        // 1️⃣ Kiểm tra invoice tồn tại
         Invoice invoice = invoiceRepository.findByIdWithoutBookings(req.getInvoiceId())
                 .orElseThrow(() -> new IllegalArgumentException("Invoice not found: " + req.getInvoiceId()));
 
-        //  Lấy tổng tiền hóa đơn
+        // 2️⃣ Lấy tổng tiền
         double amount = invoice.getTotalAmount() == null ? 0d : invoice.getTotalAmount();
         if (amount <= 0) throw new IllegalArgumentException("Invoice totalAmount must be > 0");
 
-        //  Chặn nếu hóa đơn đã thanh toán
+        // 3️⃣ Kiểm tra trùng thanh toán
         boolean alreadyPaid = paymentRepository.existsByInvoiceAndPaymentStatus(
                 invoice, Payment.PaymentStatus.SUCCESS);
-        if (alreadyPaid) {
-            throw new IllegalStateException("Invoice already paid");
-        }
+        if (alreadyPaid) throw new IllegalStateException("Invoice already paid");
 
-        //  Sinh các thông tin cần cho VNPAY
+        // 4️⃣ Sinh dữ liệu cho VNPAY
         String ipAddr = VnPayUtils.getClientIp(http);
         String txnRef = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         long amountTimes100 = Math.round(amount) * 100L;
 
         ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
         ZonedDateTime now = ZonedDateTime.now(zone);
-
         String vnpCreateDate = now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String vnpExpireDate = now.plusMinutes(props.getExpireMinutes())
                 .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
@@ -69,7 +64,7 @@ public class PaymentService {
         params.put("vnp_OrderInfo", "Thanh toan hoa don #" + invoice.getInvoiceId());
         params.put("vnp_OrderType", (req.getOrderType() == null) ? "other" : req.getOrderType());
         params.put("vnp_Locale", (req.getLocale() == null) ? props.getLocale() : req.getLocale());
-        params.put("vnp_ReturnUrl", props.getReturnUrl());
+        params.put("vnp_ReturnUrl", props.getReturnUrl()); // ✅ KHÔNG thêm VNPAY_RETURN_URL=
         params.put("vnp_IpAddr", ipAddr);
         params.put("vnp_CreateDate", vnpCreateDate);
         params.put("vnp_ExpireDate", vnpExpireDate);
@@ -78,7 +73,7 @@ public class PaymentService {
             params.put("vnp_BankCode", req.getBankCode());
         }
 
-        // Lưu Payment trạng thái PENDING
+        // 5️⃣ Lưu Payment
         Payment payment = Payment.builder()
                 .invoice(invoice)
                 .amount(amount)
@@ -91,14 +86,17 @@ public class PaymentService {
 
         paymentRepository.save(payment);
 
-        // 6Sinh URL thanh toán
-        return VnPayUtils.buildPaymentUrl(props.getPayUrl(), params, props.getHashSecret());
+        // 6️⃣ Sinh URL thanh toán
+        String payUrl = VnPayUtils.buildPaymentUrl(props.getPayUrl(), params, props.getHashSecret());
+        System.out.println("🔹 VNPAY Payment URL generated: " + payUrl);
+        return payUrl;
     }
 
-
-    /** 2️⃣ Xử lý IPN callback (VNPAY → BE) */
+    // 2️⃣ IPN Callback
     @Transactional
     public Map<String, String> handleVnPayIpn(Map<String, String> query) {
+        System.out.println("📩 [VNPAY-IPN] Received params: " + query);
+
         Map<String, String> response = new HashMap<>();
         try {
             Map<String, String> fields = new HashMap<>(query);
@@ -107,6 +105,11 @@ public class PaymentService {
 
             String dataToSign = VnPayUtils.buildDataToSign(fields);
             String signed = VnPayUtils.hmacSHA512(props.getHashSecret(), dataToSign);
+
+            // 🧾 Log checksum để debug
+            System.out.println("📘 [IPN] Data to sign: " + dataToSign);
+            System.out.println("📗 [IPN] Our signed: " + signed);
+            System.out.println("📕 [IPN] Their hash: " + secureHash);
 
             if (!signed.equalsIgnoreCase(secureHash)) {
                 response.put("RspCode", "97");
@@ -124,8 +127,7 @@ public class PaymentService {
 
             Payment payment = optionalPayment.get();
             long amountFromVnp = Long.parseLong(fields.get("vnp_Amount"));
-            boolean checkAmount = (amountFromVnp == (long) (payment.getAmount() * 100));
-            if (!checkAmount) {
+            if (amountFromVnp != (long) (payment.getAmount() * 100)) {
                 response.put("RspCode", "04");
                 response.put("Message", "Invalid Amount");
                 return response;
@@ -137,7 +139,6 @@ public class PaymentService {
                 return response;
             }
 
-            // ✅ Giao dịch hợp lệ → cập nhật trạng thái
             String respCode = fields.get("vnp_ResponseCode");
             String transStatus = fields.get("vnp_TransactionStatus");
             boolean success = "00".equals(respCode) && "00".equals(transStatus);
@@ -156,16 +157,17 @@ public class PaymentService {
             response.put("Message", "Confirm Success");
             return response;
         } catch (Exception e) {
+            e.printStackTrace();
             response.put("RspCode", "99");
             response.put("Message", "Unknown error");
             return response;
         }
     }
 
-    /** 3️⃣ Xử lý return URL (hiển thị kết quả cho người dùng) */
+    // 3️⃣ Return URL
     @Transactional
     public Map<String, Object> handleVnPayReturn(Map<String, String> query) {
-
+        System.out.println("📩 [VNPAY-RETURN] Received params: " + query);
 
         Map<String, Object> result = new HashMap<>();
         Map<String, String> fields = new HashMap<>(query);
@@ -175,6 +177,12 @@ public class PaymentService {
 
         String dataToSign = VnPayUtils.buildDataToSign(fields);
         String signed = VnPayUtils.hmacSHA512(props.getHashSecret(), dataToSign);
+
+        // 🧾 Log checksum để đối chiếu
+        System.out.println("📘 [RETURN] Data to sign: " + dataToSign);
+        System.out.println("📗 [RETURN] Our signed: " + signed);
+        System.out.println("📕 [RETURN] Their hash: " + secureHash);
+
         boolean checksumOk = signed.equalsIgnoreCase(secureHash);
         String respCode = query.get("vnp_ResponseCode");
         boolean success = checksumOk && "00".equals(respCode);
@@ -189,13 +197,11 @@ public class PaymentService {
         result.put("vnp_BankCode", query.get("vnp_BankCode"));
         result.put("message", success ? "Giao dịch thành công" : "Giao dịch thất bại hoặc sai chữ ký");
 
-        // ✅ Cập nhật Payment & Invoice khi thanh toán thành công
         if (checksumOk) {
             paymentRepository.findByVnpTxnRef(query.get("vnp_TxnRef")).ifPresent(p -> {
                 p.setChecksumOk(true);
 
                 if (success) {
-                    // cập nhật thông tin thanh toán
                     p.setPaymentStatus(Payment.PaymentStatus.SUCCESS);
                     p.setVnpPayDate(query.get("vnp_PayDate"));
                     p.setVnpTransactionNo(query.get("vnp_TransactionNo"));
@@ -203,11 +209,9 @@ public class PaymentService {
                     p.setVnpBankCode(query.get("vnp_BankCode"));
                     paymentRepository.save(p);
 
-                    // cập nhật trạng thái Invoice
                     Invoice invoice = p.getInvoice();
                     invoice.setInvoiceStatus(Invoice.InvoiceStatus.PAID);
                     invoiceRepository.save(invoice);
-
                 } else {
                     p.setPaymentStatus(Payment.PaymentStatus.FAILED);
                     paymentRepository.save(p);
@@ -217,5 +221,4 @@ public class PaymentService {
 
         return result;
     }
-
 }
