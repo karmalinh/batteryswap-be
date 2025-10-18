@@ -63,7 +63,7 @@ public class InvoiceService {
 
         // Đặt giá mặc định nếu chưa có (sử dụng giá mặc định từ Battery entity)
         if (invoice.getPricePerSwap() == null) {
-            invoice.setPricePerSwap(25000.0); // Giá mặc định tương đương với NICKEL_METAL_HYDRIDE và default case trong Battery
+            invoice.setPricePerSwap(systemPriceService.getCurrentPrice());
         }
 
         // Đặt ngày tạo
@@ -241,7 +241,7 @@ public class InvoiceService {
     public Invoice createInvoiceWithBookings(List<Long> bookingIds) {
         // Tạo invoice mới
         Invoice invoice = new Invoice();
-        invoice.setPricePerSwap(25000.0); // Giá mặc định tương đương với Battery default
+        invoice.setPricePerSwap(systemPriceService.getCurrentPrice());
         invoice.setCreatedDate(LocalDate.now());
         invoice.setNumberOfSwaps(0);
         invoice.setTotalAmount(0.0);
@@ -281,7 +281,21 @@ public class InvoiceService {
     /**
      * Xóa invoice
      */
+    @Transactional
     public void deleteInvoice(Long id) {
+        // Lấy invoice trước
+        Invoice invoice = invoiceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn với ID: " + id));
+
+        // Gỡ link tất cả booking khỏi invoice trước khi xóa
+        if (invoice.getBookings() != null && !invoice.getBookings().isEmpty()) {
+            for (Booking booking : invoice.getBookings()) {
+                booking.setInvoice(null);
+            }
+            bookingRepository.saveAll(invoice.getBookings());
+        }
+
+        // Bây giờ mới xóa invoice
         invoiceRepository.deleteById(id);
     }
 
