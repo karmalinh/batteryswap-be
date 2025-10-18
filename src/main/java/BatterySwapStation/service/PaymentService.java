@@ -2,7 +2,9 @@ package BatterySwapStation.service;
 
 import BatterySwapStation.config.VnPayProperties;
 import BatterySwapStation.dto.VnPayCreatePaymentRequest;
+import BatterySwapStation.entity.Booking;
 import BatterySwapStation.entity.Payment;
+import BatterySwapStation.repository.BookingRepository;
 import BatterySwapStation.repository.PaymentRepository;
 import BatterySwapStation.utils.VnPayUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,8 +27,7 @@ public class PaymentService {
     private final VnPayProperties props;
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
-
-
+    private final BookingRepository bookingRepository;
 
     @Transactional
     public String createVnPayPaymentUrlByInvoice(
@@ -158,6 +159,14 @@ public class PaymentService {
 
             paymentRepository.save(payment);
 
+            Invoice invoice = payment.getInvoice();
+            if (invoice != null && invoice.getBookings() != null) {
+                for (Booking booking : invoice.getBookings()) {
+                    booking.setPaymentStatus(success ? Booking.PaymentStatus.PAID : Booking.PaymentStatus.FAILED);
+                    booking.setBookingStatus(success ? Booking.BookingStatus.CONFIRMED : Booking.BookingStatus.CANCELLED);
+                    bookingRepository.save(booking);
+                }
+            }
             response.put("RspCode", "00");
             response.put("Message", "Xác minh thành công");
             return response;
@@ -211,6 +220,14 @@ public class PaymentService {
                     Invoice invoice = p.getInvoice();
                     invoice.setInvoiceStatus(Invoice.InvoiceStatus.PAID);
                     invoiceRepository.save(invoice);
+
+                    if (invoice.getBookings() != null) {
+                        for (Booking booking : invoice.getBookings()) {
+                            booking.setBookingStatus(Booking.BookingStatus.CONFIRMED);
+                            booking.setPaymentStatus(Booking.PaymentStatus.PAID);
+                            bookingRepository.save(booking);
+                        }
+                    }
 
                 } else {
                     p.setPaymentStatus(Payment.PaymentStatus.FAILED);

@@ -51,7 +51,8 @@ public class Booking {
         PENDINGPAYMENT,  // Chờ thanh toán
         PENDINGSWAPPING, // Đã thanh toán, chờ đổi pin
         CANCELLED,       // Đã hủy
-        COMPLETED        // Hoàn thành
+        COMPLETED,        // Hoàn thành
+        fAILED          // Thất bại
     }
 
     @Enumerated(EnumType.STRING)
