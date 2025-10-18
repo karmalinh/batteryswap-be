@@ -3,16 +3,16 @@ package BatterySwapStation.service;
 import BatterySwapStation.config.VnPayProperties;
 import BatterySwapStation.dto.VnPayCreatePaymentRequest;
 import BatterySwapStation.entity.Booking;
+import BatterySwapStation.entity.Invoice;
 import BatterySwapStation.entity.Payment;
 import BatterySwapStation.repository.BookingRepository;
+import BatterySwapStation.repository.InvoiceRepository;
 import BatterySwapStation.repository.PaymentRepository;
 import BatterySwapStation.utils.VnPayUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import BatterySwapStation.repository.InvoiceRepository;
-import BatterySwapStation.entity.Invoice;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -29,31 +29,27 @@ public class PaymentService {
     private final InvoiceRepository invoiceRepository;
     private final BookingRepository bookingRepository;
 
+    /** 1️⃣ Tạo URL thanh toán */
     @Transactional
     public String createVnPayPaymentUrlByInvoice(
             VnPayCreatePaymentRequest req, HttpServletRequest http) {
 
-        // 1️⃣ Kiểm tra invoice tồn tại
         Invoice invoice = invoiceRepository.findById(req.getInvoiceId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn: " + req.getInvoiceId()));
 
-        // 2️⃣ Lấy tổng tiền hóa đơn
         double amount = invoice.getTotalAmount() == null ? 0d : invoice.getTotalAmount();
-        if (amount <= 0) throw new IllegalArgumentException("Hóa đơn nên cần phải có giá trị từ 0k");
+        if (amount <= 0)
+            throw new IllegalArgumentException("Hóa đơn phải có giá trị lớn hơn 0");
 
-        // 3️⃣ Chặn nếu hóa đơn đã thanh toán
         boolean alreadyPaid = paymentRepository.existsByInvoiceAndPaymentStatus(
                 invoice, Payment.PaymentStatus.SUCCESS);
-        if (alreadyPaid) {
+        if (alreadyPaid)
             throw new IllegalStateException("Hóa đơn đã được thanh toán");
-        }
 
-        // 4️⃣ Sinh các thông tin cần cho VNPAY
         String ipAddr = VnPayUtils.getClientIp(http);
         String txnRef = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         long amountTimes100 = Math.round(amount) * 100L;
 
-        // 🕒 SỬA Ở ĐÂY: Dùng múi giờ Việt Nam để đồng bộ với sandbox
         ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
         ZonedDateTime now = ZonedDateTime.now(zone);
 
@@ -70,18 +66,15 @@ public class PaymentService {
         params.put("vnp_TxnRef", txnRef);
         params.put("vnp_OrderInfo", "Thanh toan hoa don #" + invoice.getInvoiceId());
         params.put("vnp_OrderType", req.getOrderType());
-        String locale = (req.getLocale() == null || req.getLocale().isBlank()) ? "vn" : req.getLocale();
-        params.put("vnp_Locale", locale);
+        params.put("vnp_Locale", (req.getLocale() == null || req.getLocale().isBlank()) ? "vn" : req.getLocale());
         params.put("vnp_ReturnUrl", props.getReturnUrl());
         params.put("vnp_IpAddr", ipAddr);
         params.put("vnp_CreateDate", vnpCreateDate);
         params.put("vnp_ExpireDate", vnpExpireDate);
-
         if (req.getBankCode() != null && !req.getBankCode().isBlank()) {
             params.put("vnp_BankCode", req.getBankCode());
         }
 
-        // 5️⃣ Lưu Payment trạng thái PENDING
         Payment payment = Payment.builder()
                 .invoice(invoice)
                 .amount(amount)
@@ -93,15 +86,8 @@ public class PaymentService {
                 .build();
         paymentRepository.save(payment);
 
-        // Log để debug nếu cần
-        System.out.println(">>> vnp_CreateDate = " + vnpCreateDate);
-        System.out.println(">>> vnp_ExpireDate = " + vnpExpireDate);
-
-        // 6️⃣ Sinh URL thanh toán
         return VnPayUtils.buildPaymentUrl(props.getPayUrl(), params, props.getHashSecret());
     }
-
-
 
     /** 2️⃣ Xử lý IPN callback (VNPAY → BE) */
     @Transactional
@@ -117,7 +103,7 @@ public class PaymentService {
 
             if (!signed.equalsIgnoreCase(secureHash)) {
                 response.put("RspCode", "97");
-                response.put("Message", "Checksum ko hợp lệ");
+                response.put("Message", "Checksum không hợp lệ");
                 return response;
             }
 
@@ -140,11 +126,10 @@ public class PaymentService {
 
             if (payment.getPaymentStatus() != Payment.PaymentStatus.PENDING) {
                 response.put("RspCode", "02");
-                response.put("Message", "Thanh toán đã được trả");
+                response.put("Message", "Thanh toán đã được xử lý");
                 return response;
             }
 
-            // ✅ Giao dịch hợp lệ → cập nhật trạng thái
             String respCode = fields.get("vnp_ResponseCode");
             String transStatus = fields.get("vnp_TransactionStatus");
             boolean success = "00".equals(respCode) && "00".equals(transStatus);
@@ -156,28 +141,31 @@ public class PaymentService {
             payment.setVnpBankCode(fields.get("vnp_BankCode"));
             payment.setVnpPayDate(fields.get("vnp_PayDate"));
             payment.setPaymentStatus(success ? Payment.PaymentStatus.SUCCESS : Payment.PaymentStatus.FAILED);
-
             paymentRepository.save(payment);
 
             Invoice invoice = payment.getInvoice();
             if (invoice != null && invoice.getBookings() != null) {
                 for (Booking booking : invoice.getBookings()) {
-                    booking.setPaymentStatus(success ? Booking.PaymentStatus.PAID : Booking.PaymentStatus.FAILED);
-                    booking.setBookingStatus(success ? Booking.BookingStatus.CONFIRMED : Booking.BookingStatus.CANCELLED);
+                    if (success) {
+                        booking.setBookingStatus(Booking.BookingStatus.PENDINGSWAPPING);
+                    } else {
+                        booking.setBookingStatus(Booking.BookingStatus.FAILED);
+                    }
                     bookingRepository.save(booking);
                 }
             }
+
             response.put("RspCode", "00");
             response.put("Message", "Xác minh thành công");
             return response;
         } catch (Exception e) {
             response.put("RspCode", "99");
-            response.put("Message", "Lỗi ko rõ, vui lòng liên hệ lại admin");
+            response.put("Message", "Lỗi không xác định");
             return response;
         }
     }
 
-    /** 3️⃣ Xử lý return URL (hiển thị kết quả cho người dùng) */
+    /** 3️⃣ Xử lý return URL (BE → FE) */
     @Transactional
     public Map<String, Object> handleVnPayReturn(Map<String, String> query) {
         Map<String, Object> result = new HashMap<>();
@@ -202,13 +190,10 @@ public class PaymentService {
         result.put("vnp_BankCode", query.get("vnp_BankCode"));
         result.put("message", success ? "Giao dịch thành công" : "Giao dịch thất bại hoặc sai chữ ký");
 
-        // ✅ Cập nhật Payment & Invoice khi thanh toán thành công
         if (checksumOk) {
             paymentRepository.findByVnpTxnRef(query.get("vnp_TxnRef")).ifPresent(p -> {
                 p.setChecksumOk(true);
-
                 if (success) {
-                    // cập nhật thông tin thanh toán
                     p.setPaymentStatus(Payment.PaymentStatus.SUCCESS);
                     p.setVnpPayDate(query.get("vnp_PayDate"));
                     p.setVnpTransactionNo(query.get("vnp_TransactionNo"));
@@ -216,27 +201,31 @@ public class PaymentService {
                     p.setVnpBankCode(query.get("vnp_BankCode"));
                     paymentRepository.save(p);
 
-                    // cập nhật trạng thái Invoice
                     Invoice invoice = p.getInvoice();
                     invoice.setInvoiceStatus(Invoice.InvoiceStatus.PAID);
                     invoiceRepository.save(invoice);
 
                     if (invoice.getBookings() != null) {
                         for (Booking booking : invoice.getBookings()) {
-                            booking.setBookingStatus(Booking.BookingStatus.CONFIRMED);
-                            booking.setPaymentStatus(Booking.PaymentStatus.PAID);
+                            booking.setBookingStatus(Booking.BookingStatus.PENDINGSWAPPING);
                             bookingRepository.save(booking);
                         }
                     }
-
                 } else {
                     p.setPaymentStatus(Payment.PaymentStatus.FAILED);
                     paymentRepository.save(p);
+
+                    Invoice invoice = p.getInvoice();
+                    if (invoice != null && invoice.getBookings() != null) {
+                        for (Booking booking : invoice.getBookings()) {
+                            booking.setBookingStatus(Booking.BookingStatus.FAILED);
+                            bookingRepository.save(booking);
+                        }
+                    }
                 }
             });
         }
 
         return result;
     }
-
 }
