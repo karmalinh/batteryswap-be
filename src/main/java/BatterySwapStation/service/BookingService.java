@@ -248,7 +248,7 @@ public class BookingService {
             Booking.BookingStatus status = Booking.BookingStatus.valueOf(newStatus.toUpperCase());
             booking.setBookingStatus(status);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Trạng thái không hợp lệ: " + newStatus + ". Các trạng thái hợp lệ: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED");
+            throw new IllegalArgumentException("Trạng thái không hợp lệ: " + newStatus + ". Các trạng thái hợp lệ: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED, FAILED");
         }
 
         Booking savedBooking = bookingRepository.save(booking);
@@ -377,6 +377,20 @@ public class BookingService {
         response.setMessage(paymentMessage);
 
         return response;
+    }
+
+    /**
+     * Chuyển trạng thái booking từ PENDINGPAYMENT sang FAILED
+     */
+    public BookingResponse markBookingAsFailed(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt đặt pin với mã: " + bookingId));
+        if (booking.getBookingStatus() != Booking.BookingStatus.PENDINGPAYMENT) {
+            throw new IllegalStateException("Chỉ có thể chuyển sang FAILED khi trạng thái hiện tại là PENDINGPAYMENT");
+        }
+        booking.setBookingStatus(Booking.BookingStatus.FAILED);
+        Booking savedBooking = bookingRepository.save(booking);
+        return convertToResponse(savedBooking);
     }
 
     /**

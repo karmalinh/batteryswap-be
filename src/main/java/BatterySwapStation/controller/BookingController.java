@@ -122,16 +122,16 @@ public class BookingController {
     }
 
     @PutMapping("/{bookingId}/status")
-    @Operation(summary = "Cập nhật trạng thái booking", description = "Cập nhật trạng thái của một booking (dành cho admin/staff). Trạng thái: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED")
+    @Operation(summary = "Cập nhật trạng thái booking", description = "Cập nhật trạng thái của một booking (dành cho admin/staff). Trạng thái: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED, FAILED")
     public ResponseEntity<ApiResponseDto> updateBookingStatus(
             @PathVariable @Parameter(description = "ID của booking") Long bookingId,
-            @RequestParam @Parameter(description = "Trạng thái mới (PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED)") String status) {
+            @RequestParam @Parameter(description = "Trạng thái mới (PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED, FAILED)") String status) {
         try {
             // Validate và normalize status
             String normalizedStatus = status.toUpperCase();
-            if (!normalizedStatus.matches("PENDINGPAYMENT|PENDINGSWAPPING|CANCELLED|COMPLETED")) {
+            if (!normalizedStatus.matches("PENDINGPAYMENT|PENDINGSWAPPING|CANCELLED|COMPLETED|FAILED")) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponseDto(false, "Trạng thái không hợp lệ. Chỉ chấp nhận: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED"));
+                        .body(new ApiResponseDto(false, "Trạng thái không hợp lệ. Chỉ chấp nhận: PENDINGPAYMENT, PENDINGSWAPPING, CANCELLED, COMPLETED, FAILED"));
             }
 
             BookingResponse response = bookingService.updateBookingStatus(bookingId, normalizedStatus);
@@ -139,6 +139,19 @@ public class BookingController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(new ApiResponseDto(false, "Cập nhật trạng thái booking thất bại: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{bookingId}/fail")
+    @Operation(summary = "Chuyển trạng thái booking sang FAILED", description = "Cập nhật trạng thái của booking từ PENDINGPAYMENT sang FAILED trong trường hợp thanh toán thất bại")
+    public ResponseEntity<ApiResponseDto> markBookingAsFailed(
+            @PathVariable @Parameter(description = "ID của booking") Long bookingId) {
+        try {
+            BookingResponse response = bookingService.markBookingAsFailed(bookingId);
+            return ResponseEntity.ok(new ApiResponseDto(true, "Chuyển trạng thái booking sang FAILED thành công!", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponseDto(false, "Chuyển trạng thái booking sang FAILED thất bại: " + e.getMessage()));
         }
     }
 
