@@ -87,6 +87,7 @@ public class InvoiceService {
         return invoiceRepository.save(invoice);
     }
 
+
     /**
      * Tạo invoice cho booking sau khi thanh toán
      */
