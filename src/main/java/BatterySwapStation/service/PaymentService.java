@@ -188,9 +188,11 @@ public class PaymentService {
         result.put("success", success);
         result.put("checksumOk", checksumOk);
         result.put("vnp_Amount", query.get("vnp_Amount"));
+        result.put("vnp_TxnRef", query.get("vnp_TxnRef"));
         result.put("message", success ? "Giao dịch thành công" : "Giao dịch thất bại");
 
         return result;
     }
+
 }
 
