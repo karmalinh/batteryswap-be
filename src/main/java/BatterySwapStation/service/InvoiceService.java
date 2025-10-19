@@ -57,6 +57,11 @@ public class InvoiceService {
     /**
      * Tạo invoice mới và tự động tính toán tổng tiền
      */
+    /**
+     * Tạo invoice mới (ĐÃ SỬA LỖI)
+     * [SỬA] Đã xóa 'calculateTotalAmount()' vì nó gây ra lỗi setTotalAmount = 0
+     * vì các giá trị đã được Controller tính toán trước.
+     */
     @Transactional
     public Invoice createInvoice(Invoice invoice) {
         invoice.setInvoiceId(null); // Đảm bảo sử dụng sequence tự động
@@ -76,23 +81,8 @@ public class InvoiceService {
             invoice.setInvoiceStatus(Invoice.InvoiceStatus.PENDING);
         }
 
-        // ✅ NẾU CÓ BOOKING, LẤY userId TỪ BOOKING ĐẦU TIÊN
-        if (invoice.getUserId() == null && invoice.getBookings() != null && !invoice.getBookings().isEmpty()) {
-            Booking firstBooking = invoice.getBookings().get(0);
-            if (firstBooking.getUser() != null) {
-                invoice.setUserId(firstBooking.getUser().getUserId());
-            }
-        }
-
-        // Tính số lần đổi pin dựa trên bookings
-        if (invoice.getBookings() != null && !invoice.getBookings().isEmpty()) {
-            invoice.setNumberOfSwaps(invoice.getBookings().size());
-        } else {
-            invoice.setNumberOfSwaps(0);
-        }
-
-        // Tính tổng tiền tự động
-        invoice.calculateTotalAmount();
+        // [ĐÃ XÓA] - Lệnh 'invoice.calculateTotalAmount();'
+        // Lệnh này gây lỗi setTotalAmount = 0
 
         return invoiceRepository.save(invoice);
     }
@@ -237,21 +227,16 @@ public class InvoiceService {
         // 6. Lưu các booking
         bookingRepository.saveAll(bookings);
 
-        // --- SỬA LỖI LOGIC TẠI ĐÂY ---
+        // 7. [SỬA LỖI] Tải lại invoice để lấy danh sách booking mới nhất
+        Invoice freshInvoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn sau khi link: " + invoiceId));
 
-        // 7. Lấy số swap hiện có (đảm bảo không bị null)
-        int existingSwaps = (invoice.getNumberOfSwaps() != null) ? invoice.getNumberOfSwaps() : 0;
+        // 8. Tính toán trên đối tượng mới (freshInvoice.getBookings() đã đầy đủ)
+        freshInvoice.calculateTotalAmount(); // Hàm này sẽ tự động set totalAmount VÀ numberOfSwaps
 
-        // 8. Cập nhật số lần đổi pin = [SỐ CŨ] + [SỐ MỚI]
-        invoice.setNumberOfSwaps(existingSwaps + bookings.size());
+        // 9. Lưu lại invoice đã cập nhật
+        return invoiceRepository.save(freshInvoice);
 
-        // 9. Tính lại tổng tiền (Hàm này sẽ tự động lấy numberOfSwaps * pricePerSwap)
-        invoice.calculateTotalAmount();
-
-        // --- KẾT THÚC SỬA LỖI ---
-
-        // 10. Lưu lại invoice đã cập nhật
-        return invoiceRepository.save(invoice);
     }
 
     /**
@@ -363,14 +348,16 @@ public class InvoiceService {
             .collect(Collectors.toList());
 
         return InvoiceSimpleResponseDTO.builder()
-            .invoiceId(invoice.getInvoiceId())
-            .userId(invoice.getUserId())
-            .createdDate(invoice.getCreatedDate())
-            .totalAmount(invoice.getTotalAmount())
-            .pricePerSwap(invoice.getPricePerSwap())
-            .numberOfSwaps(invoice.getNumberOfSwaps())
-            .bookings(simpleBookings)
-            .build();
+                .invoiceId(invoice.getInvoiceId())
+                .userId(invoice.getUserId())
+                .createdDate(invoice.getCreatedDate())
+                .totalAmount(invoice.getTotalAmount())
+                .pricePerSwap(invoice.getPricePerSwap())
+                .numberOfSwaps(invoice.getNumberOfSwaps())
+                .bookings(simpleBookings)
+                // ✅ THÊM DÒNG NÀY (VÀ THÊM TRƯỜNG NÀY VÀO DTO CỦA BẠN)
+                .invoiceStatus(invoice.getInvoiceStatus().toString())
+                .build();
     }
 
     /**

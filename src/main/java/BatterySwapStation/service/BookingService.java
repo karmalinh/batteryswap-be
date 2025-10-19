@@ -24,22 +24,41 @@ import java.util.stream.Collectors;
 
 
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class BookingService {
 
+    // 1. KHAI BÁO TẤT CẢ LÀ FINAL (KHÔNG CÓ @AUTOWIRED)
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final StationRepository stationRepository;
     private final VehicleRepository vehicleRepository;
-    private final SystemPriceService systemPriceService; // Thêm SystemPriceService
-    private final InvoiceService invoiceService; // Để tạo/cập nhật invoice khi tạo nhiều booking
+    private final SystemPriceService systemPriceService;
+    private final InvoiceService invoiceService;
+    private final InvoiceRepository invoiceRepository;
+    private final ObjectMapper objectMapper;
+    // (Và bất kỳ repository/service nào khác bạn có)
 
+    // 2. TẠO CONSTRUCTOR ĐỂ TIÊM TẤT CẢ
     @Autowired
-    private ObjectMapper objectMapper;
+    public BookingService(BookingRepository bookingRepository,
+                          UserRepository userRepository,
+                          StationRepository stationRepository,
+                          VehicleRepository vehicleRepository,
+                          SystemPriceService systemPriceService,
+                          InvoiceService invoiceService, // <--- Lỗi sẽ hết sau Bước 1
+                          InvoiceRepository invoiceRepository,
+                          ObjectMapper objectMapper) {
 
-    @Autowired
-    private InvoiceRepository invoiceRepository;
+        // 3. GÁN GIÁ TRỊ
+        this.bookingRepository = bookingRepository;
+        this.userRepository = userRepository;
+        this.stationRepository = stationRepository;
+        this.vehicleRepository = vehicleRepository;
+        this.systemPriceService = systemPriceService;
+        this.invoiceService = invoiceService;
+        this.invoiceRepository = invoiceRepository;
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * Tạo đặt chỗ mới (giới hạn tối đa 1 xe, chỉ 1 trạm, ngày trong 2 ngày, khung giờ hợp lệ)
