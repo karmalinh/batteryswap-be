@@ -1,7 +1,7 @@
 -- Sửa booking ID 81 thành 09:30
 UPDATE booking
-SET "timeslot" = '09:30:00'
-WHERE "bookingid" = 81;
+SET "timeslot" = '16:30:00'
+WHERE "bookingid" = 82;
 
 -- Sửa booking ID 80 thành 14:00
 UPDATE booking

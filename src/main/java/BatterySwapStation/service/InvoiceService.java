@@ -190,7 +190,7 @@ public class InvoiceService {
             throw new RuntimeException("Không tìm thấy booking nào để link");
         }
 
-        // 3. THÊM: Nếu invoice chưa có userId, lấy từ booking đầu tiên
+        // 3. Nếu invoice chưa có userId, lấy từ booking đầu tiên
         if (invoice.getUserId() == null && !bookings.isEmpty()) {
             invoice.setUserId(bookings.get(0).getUser().getUserId());
         }
@@ -211,7 +211,7 @@ public class InvoiceService {
         for (Booking booking : bookings) {
             booking.setInvoice(invoice);
 
-            // Đặt giá cho booking nếu nó chưa có (giữ nguyên logic đồng giá của bạn)
+            // Đặt giá cho booking nếu nó chưa có
             if (booking.getAmount() == null) {
                 booking.setAmount(invoice.getPricePerSwap());
             }
@@ -220,16 +220,12 @@ public class InvoiceService {
         // 6. Lưu các booking
         bookingRepository.saveAll(bookings);
 
-        // 7. [SỬA LỖI] Tải lại invoice để lấy danh sách booking mới nhất
-        Invoice freshInvoice = invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn sau khi link: " + invoiceId));
+        // 7. Tính toán trực tiếp (KHÔNG CẦN reload)
+        invoice.setNumberOfSwaps(bookings.size());
+        invoice.setTotalAmount(bookings.size() * invoice.getPricePerSwap());
 
-        // 8. Tính toán trên đối tượng mới (freshInvoice.getBookings() đã đầy đủ)
-        freshInvoice.calculateTotalAmount(); // Hàm này sẽ tự động set totalAmount VÀ numberOfSwaps
-
-        // 9. Lưu lại invoice đã cập nhật
-        return invoiceRepository.save(freshInvoice);
-
+        // 8. Lưu lại invoice
+        return invoiceRepository.save(invoice);
     }
 
     /**
