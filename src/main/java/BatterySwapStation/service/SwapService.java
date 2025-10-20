@@ -4,12 +4,15 @@ import BatterySwapStation.dto.SwapRequest;
 import BatterySwapStation.dto.SwapResponseDTO;
 import BatterySwapStation.entity.*;
 import BatterySwapStation.repository.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -226,8 +229,8 @@ public class SwapService {
         }
     }
 
-
-    private SwapResponseDTO handleSingleSwap(Booking booking, String batteryInId, String staffUserId) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    protected SwapResponseDTO handleSingleSwap(Booking booking, String batteryInId, String staffUserId) {
         Integer stationId = booking.getStation().getStationId();
 
         // 1️⃣ Pin khách đưa vào
