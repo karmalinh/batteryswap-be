@@ -235,19 +235,53 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Lấy đặt chỗ theo ID
-     */
     @Transactional(readOnly = true)
-    public BookingResponse getBookingById(Long bookingId, String userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy người dùng với mã: " + userId));
+    public Map<String, Object> getBookingById(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy booking với ID: " + bookingId));
 
-        Booking booking = bookingRepository.findByBookingIdAndUser(bookingId, user)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt đặt pin với mã: " + bookingId));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("bookingId", booking.getBookingId());
+        result.put("bookingStatus", booking.getBookingStatus().name());
+        result.put("bookingDate", booking.getBookingDate());
+        result.put("timeSlot", booking.getTimeSlot());
+        result.put("amount", booking.getAmount());
+        result.put("batteryType", booking.getBatteryType());
+        result.put("batteryCount", booking.getBatteryCount());
 
-        return convertToResponse(booking);
+        // ✅ Thông tin khách hàng
+        if (booking.getUser() != null) {
+            result.put("userId", booking.getUser().getUserId());
+            result.put("fullName", booking.getUser().getFullName());
+            result.put("email", booking.getUser().getEmail());
+            result.put("phone", booking.getUser().getPhone());
+        }
+
+        // ✅ Thông tin xe
+        if (booking.getVehicle() != null) {
+            result.put("vehicleId", booking.getVehicle().getVehicleId());
+            result.put("vehicleVin", booking.getVehicle().getVIN());
+            result.put("vehicleType", booking.getVehicle().getVehicleType().toString());
+            result.put("licensePlate", booking.getVehicle().getLicensePlate());
+        }
+
+        // ✅ Thông tin trạm
+        if (booking.getStation() != null) {
+            result.put("stationId", booking.getStation().getStationId());
+            result.put("stationName", booking.getStation().getStationName());
+            result.put("stationAddress", booking.getStation().getAddress());
+        }
+
+        // ✅ Thông tin thanh toán (nếu có)
+        if (booking.getInvoice() != null) {
+            result.put("invoiceId", booking.getInvoice().getInvoiceId());
+            result.put("totalAmount", booking.getInvoice().getTotalAmount());
+            result.put("invoiceStatus", booking.getInvoice().getInvoiceStatus().name());
+        }
+
+        return result;
     }
+
 
     /**
      * Hủy đặt chỗ
@@ -1150,4 +1184,6 @@ public class BookingService {
         // 6. Trả về kết quả
         return Map.of("deleted", foundCount, "notFound", notFoundCount);
     }
+
+
 }

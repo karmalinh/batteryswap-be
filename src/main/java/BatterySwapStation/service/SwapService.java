@@ -33,7 +33,6 @@ public class SwapService {
         if (booking.getBookingStatus() == Booking.BookingStatus.COMPLETED) {
             throw new IllegalStateException("Booking đã hoàn thành, không thể swap lại.");
         }
-
         Integer stationId = booking.getStation().getStationId();
 
         //  Pin KH đưa (batteryIn)
@@ -89,8 +88,14 @@ public class SwapService {
         }
 
         // 5️⃣ Mã hiển thị slot: "A2", "B5"
-        String dockOutCode = dockOutSlot.getDock().getDockName() + dockOutSlot.getSlotNumber();
-        String dockInCode  = dockInSlot.getDock().getDockName() + dockInSlot.getSlotNumber();
+        String dockOutCode;
+        if (dockOutSlot.getDock() != null) {
+            dockOutCode = dockOutSlot.getDock().getDockName() + dockOutSlot.getSlotNumber();
+        } else {
+            dockOutCode = "UNKNOWN" + dockOutSlot.getSlotNumber(); // fallback nếu dockOutSlot.getDock() == null
+        }
+
+        String dockInCode = dockInSlot.getDock().getDockName() + dockInSlot.getSlotNumber();
 
         // 6️⃣ Kiểm tra khác model => chờ user retry
         Swap.SwapStatus swapStatus = Swap.SwapStatus.SUCCESS;

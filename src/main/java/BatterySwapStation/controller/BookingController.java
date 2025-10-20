@@ -67,18 +67,20 @@ public class BookingController {
     }
 
     @GetMapping("/{bookingId}")
-    @Operation(summary = "Lấy thông tin booking theo ID", description = "Lấy chi tiết một booking cụ thể")
-    public ResponseEntity<ApiResponseDto> getBookingById(
-            @PathVariable @Parameter(description = "ID của booking") Long bookingId,
-            @RequestParam @Parameter(description = "ID của user") String userId) {
+    @Operation(
+            summary = "Lấy thông tin booking theo ID",
+            description = "Trả chi tiết thông tin booking: khách hàng, xe, trạm, thanh toán... Dùng cho cả FE và QR"
+    )
+    public ResponseEntity<ApiResponseDto> getBookingById(@PathVariable Long bookingId) {
         try {
-            BookingResponse booking = bookingService.getBookingById(bookingId, userId);
-            return ResponseEntity.ok(new ApiResponseDto(true, "Lấy danh sách booking thành công!", booking));
+            Map<String, Object> booking = bookingService.getBookingById(bookingId);
+            return ResponseEntity.ok(new ApiResponseDto(true, "Lấy thông tin booking thành công!", booking));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                    .body(new ApiResponseDto(false, "Lỗi lấy danh sách booking: " + e.getMessage()));
+                    .body(new ApiResponseDto(false, "Lỗi lấy thông tin booking: " + e.getMessage()));
         }
     }
+
 
     @PutMapping("/cancel")
     @Operation(summary = "Hủy booking", description = "Hủy một booking đã tạo")
