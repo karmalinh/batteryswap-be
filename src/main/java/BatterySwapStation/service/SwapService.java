@@ -143,7 +143,7 @@ public class SwapService {
         if (availableCount == 0) {
             throw new IllegalStateException("Trạm hiện không còn pin đầy khả dụng để thực hiện swap.");
         } else if (availableCount < requiredCount) {
-            System.out.println("⚠️ Cảnh báo: Trạm chỉ có " + availableCount + "/" + requiredCount + " pin đầy.");
+            System.out.println(" Cảnh báo: Trạm chỉ có " + availableCount + "/" + requiredCount + " pin đầy.");
         }
 
         // Lấy Staff userId từ SecurityContext hoặc request
