@@ -110,13 +110,9 @@ public class SwapService {
             throw new IllegalStateException("Booking đã hoàn thành, không thể swap lại.");
         }
 
-        // Chuẩn bị danh sách pin (1 hoặc nhiều)
-        List<String> batteryInIds = new ArrayList<>();
-        if (request.getBatteryInIds() != null && !request.getBatteryInIds().isEmpty()) {
-            batteryInIds.addAll(request.getBatteryInIds());
-        } else if (request.getBatteryInId() != null && !request.getBatteryInId().isBlank()) {
-            batteryInIds.add(request.getBatteryInId());
-        } else {
+        // Danh sách pin (phải luôn có ít nhất 1 phần tử)
+        List<String> batteryInIds = request.getBatteryInIds();
+        if (batteryInIds == null || batteryInIds.isEmpty()) {
             throw new IllegalArgumentException("Thiếu thông tin pin khách đưa.");
         }
 
@@ -136,6 +132,18 @@ public class SwapService {
                     "Booking #" + booking.getBookingId() + " chỉ cho phép đổi " + requiredCount + " pin, " +
                             "nhưng đã nhập " + batteryInIds.size() + " pin. Vui lòng kiểm tra lại."
             );
+        }
+
+        // 🔹 Kiểm tra số lượng pin đầy khả dụng trong trạm trước khi swap
+        long availableCount = dockSlotRepository.countByDock_Station_StationIdAndBattery_BatteryStatus(
+                booking.getStation().getStationId(),
+                Battery.BatteryStatus.AVAILABLE
+        );
+
+        if (availableCount == 0) {
+            throw new IllegalStateException("Trạm hiện không còn pin đầy khả dụng để thực hiện swap.");
+        } else if (availableCount < requiredCount) {
+            System.out.println("⚠️ Cảnh báo: Trạm chỉ có " + availableCount + "/" + requiredCount + " pin đầy.");
         }
 
         // Lấy Staff userId từ SecurityContext hoặc request
@@ -171,43 +179,52 @@ public class SwapService {
             }
         }
 
-        // Update trạng thái booking
-        if (allSuccess) {
+        // ✅ Đếm số pin đã swap thành công trong DB (SUCCESS)
+        long successSwaps = swapRepository.countByBooking_BookingIdAndStatus(
+                booking.getBookingId(), Swap.SwapStatus.SUCCESS
+        );
+
+        // ✅ Nếu đã đủ số lượng pin theo booking thì mark completed
+        if (successSwaps >= requiredCount) {
             booking.setBookingStatus(Booking.BookingStatus.COMPLETED);
             booking.setCompletedTime(LocalDate.now());
         } else {
             booking.setBookingStatus(Booking.BookingStatus.PENDINGSWAPPING);
         }
+
         bookingRepository.save(booking);
 
         // Nếu chỉ có 1 pin thì trả object, còn nhiều thì trả list
         return results.size() == 1 ? results.get(0) : results;
     }
 
-    @Scheduled(fixedRate = 600000) // 600000 ms = 10 phút
+
+    @Scheduled(fixedRate = 600000) // mỗi 10 phút
     @Transactional
     public void autoCancelUnconfirmedSwaps() {
-        List<Swap> pendingSwaps = swapRepository.findByStatus(Swap.SwapStatus.WAITING_USER_RETRY);
-
+        List<Swap> waitingSwaps = swapRepository.findByStatus(Swap.SwapStatus.WAITING_USER_RETRY);
         LocalDateTime now = LocalDateTime.now();
-        for (Swap swap : pendingSwaps) {
-            if (swap.getCompletedTime() != null) {
-                Duration duration = Duration.between(swap.getCompletedTime(), now);
-                if (duration.toHours() >= 1) {
-                    Booking booking = swap.getBooking();
-                    if (booking != null) {
-                        booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
-                        booking.setCancellationReason("Auto-cancel sau 1 tiếng không xác nhận lại.");
-                        bookingRepository.save(booking);
-                    }
 
-                    swap.setStatus(Swap.SwapStatus.CANCELLED);
-                    swap.setDescription("Tự động hủy sau 1 tiếng không xác nhận.");
-                    swapRepository.save(swap);
+        for (Swap swap : waitingSwaps) {
+            // chỉ xử lý nếu swap đã tạo hơn 1 tiếng
+            if (swap.getCompletedTime() != null &&
+                    Duration.between(swap.getCompletedTime(), now).toHours() >= 1) {
+
+                Booking booking = swap.getBooking();
+                if (booking != null && booking.getBookingStatus() == Booking.BookingStatus.COMPLETED) {
+                    // chỉ auto-cancel nếu booking đã hoàn tất swap nhưng đang chờ xác nhận
+                    booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+                    booking.setCancellationReason("Tự động hủy swap khác model sau 1 tiếng không xác nhận.");
+                    bookingRepository.save(booking);
                 }
+
+                swap.setStatus(Swap.SwapStatus.CANCELLED);
+                swap.setDescription("Tự động hủy swap khác model sau 1 tiếng không xác nhận.");
+                swapRepository.save(swap);
             }
         }
     }
+
 
     private SwapResponseDTO handleSingleSwap(Booking booking, String batteryInId, String staffUserId) {
         Integer stationId = booking.getStation().getStationId();
