@@ -835,7 +835,7 @@ public class BookingController {
     }
 
     @GetMapping("/{bookingId}/generateQr")
-    @Operation(summary = "Tạo QR token cho booking", description = "FE gọi để lấy token text dùng sinh QR hình ảnh")
+    @Operation(summary = "Tạo QR token cho booking", description = "FE gọi để lấy token text dùng sinh QR hình ảnh, cho phép tạo QR ngay cả khi chưa thanh toán")
     public ResponseEntity<ApiResponseDto> generateQr(@PathVariable Long bookingId) {
         try {
             Map<String, Object> bookingData = bookingService.getBookingById(bookingId);
@@ -844,7 +844,16 @@ public class BookingController {
                         .body(new ApiResponseDto(false, "Không tìm thấy booking #" + bookingId));
             }
 
-            // ✅ Sinh token mã hoá ngắn bằng QrTokenUtil
+            // ✅ Kiểm tra trạng thái booking
+            String status = (String) bookingData.get("bookingStatus");
+            if ("COMPLETED".equalsIgnoreCase(status) || "CANCELLED".equalsIgnoreCase(status)) {
+                return ResponseEntity.ok(
+                        new ApiResponseDto(false,
+                                String.format("Booking #%d đã ở trạng thái %s, không thể tạo QR.", bookingId, status))
+                );
+            }
+
+            // ✅ Cho phép tạo QR khi chưa thanh toán hoặc đang chờ swap
             String qrToken = QrTokenUtil.generateToken(bookingId);
             return ResponseEntity.ok(new ApiResponseDto(true, "Đã tạo QR", Map.of("token", qrToken)));
 
@@ -855,11 +864,12 @@ public class BookingController {
     }
 
 
+
     @GetMapping("/verifyQr")
     @Operation(summary = "Xác thực QR booking", description = "FE staff quét QR và gửi token lên để lấy thông tin booking")
     public ResponseEntity<ApiResponseDto> verifyQr(@RequestParam("token") String token) {
         try {
-            // ✅ Giải mã token để lấy bookingId thật
+
             long bookingId = QrTokenUtil.extractBookingId(token);
 
             Map<String, Object> bookingData = bookingService.getBookingById(bookingId);
