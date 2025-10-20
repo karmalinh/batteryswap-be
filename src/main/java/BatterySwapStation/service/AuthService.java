@@ -10,7 +10,9 @@ import BatterySwapStation.entity.Role;
 import BatterySwapStation.entity.User;
 import BatterySwapStation.repository.RoleRepository;
 import BatterySwapStation.repository.UserRepository;
-
+import BatterySwapStation.dto.GoogleUserInfo;
+import java.util.Map;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -83,4 +85,50 @@ public class AuthService {
         userRepository.save(user);
         return true;
     }
+
+
+    @Transactional
+    public Map<String, Object> handleGoogleLogin(GoogleUserInfo info) {
+        // tìm user theo email (User, không Optional)
+        User user = userRepository.findByEmail(info.getEmail());
+
+        if (user == null) {
+            // tìm role USER (Role, không Optional)
+            Role defaultRole = roleRepository.findByRoleName("USER");
+            if (defaultRole == null) {
+                throw new IllegalStateException("Role USER chưa tồn tại trong hệ thống");
+            }
+
+            user = new User();
+            user.setUserId(generateUserId());
+            user.setFullName(info.getName());
+            user.setEmail(info.getEmail());
+            user.setPassword(""); // để trống
+            user.setAddress("");
+            user.setPhone("");
+            user.setActive(true);
+            user.setVerified(info.isEmailVerified());
+            user.setRole(defaultRole);
+
+            userRepository.save(user);
+        }
+
+        // tạo JWT (hàm generateToken(User))
+        String jwt = jwtService.generateToken(user);
+
+        return Map.of(
+                "token", jwt,
+                "email", user.getEmail(),
+                "fullName", user.getFullName(),
+                "isNewUser", user.getPassword() == null || user.getPassword().isBlank()
+        );
+    }
+
+    // Sinh mã userId tự động
+    private String generateUserId() {
+        long count = userRepository.count() + 1;
+        return String.format("US%03d", count);
+    }
+
+
 }
