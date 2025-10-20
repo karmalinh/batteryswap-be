@@ -86,22 +86,20 @@ public class AuthService {
 
     @Transactional
     public AuthResponse handleGoogleLogin(GoogleUserInfo info) {
-        // Tìm user theo email
         User user = userRepository.findByEmail(info.getEmail());
+        boolean isNew = false;
 
         if (user == null) {
-            // tìm role mặc định DRIVER
             Role defaultRole = roleRepository.findByRoleName("DRIVER");
             if (defaultRole == null) {
                 throw new IllegalStateException("Role DRIVER chưa tồn tại trong hệ thống");
             }
 
-            // tạo user mới
             user = new User();
-            user.setUserId(userIdGenerator.generateUserId(defaultRole)); // ✅ dùng util class
+            user.setUserId(userIdGenerator.generateUserId(defaultRole));
             user.setFullName(info.getName());
             user.setEmail(info.getEmail());
-            user.setPassword(""); // chưa có mật khẩu
+            user.setPassword("");
             user.setAddress("");
             user.setPhone("");
             user.setActive(true);
@@ -109,9 +107,9 @@ public class AuthService {
             user.setRole(defaultRole);
 
             userRepository.save(user);
+            isNew = true;
         }
 
-        // tạo JWT token
         String token = jwtService.generateToken(
                 user.getUserId(),
                 user.getEmail(),
@@ -119,9 +117,10 @@ public class AuthService {
                 user.getRole().getRoleName()
         );
 
+        String message = isNew ? "Đăng ký mới thành công, vui lòng bổ sung SĐT và địa chỉ sau nhé" : "Đăng nhập thành công";
 
         return new AuthResponse(
-                "Đăng kí mới thành công, vui lòng cập nhật địa chỉ và SĐT sau nhé~.",
+                message,
                 user.getUserId(),
                 user.getEmail(),
                 user.getFullName(),
@@ -130,6 +129,7 @@ public class AuthService {
                 token
         );
     }
+
 
 
 

@@ -29,6 +29,7 @@ public class SwapService {
     private final BookingRepository bookingRepository;
     private final BatteryRepository batteryRepository;
     private final DockSlotRepository dockSlotRepository;
+    private final StaffAssignRepository staffAssignRepository;
 
     @Transactional
     public Object cancelSwap(Long swapId, String cancelType) {
@@ -121,7 +122,7 @@ public class SwapService {
             throw new IllegalArgumentException("Thiếu thông tin pin khách đưa.");
         }
 
-        //  Kiểm tra số lượng pin theo booking (thiếu / thừa)
+        // Kiểm tra số lượng pin theo booking (thiếu / thừa)
         Integer requiredCount = (booking.getBatteryCount() != null && booking.getBatteryCount() > 0)
                 ? booking.getBatteryCount()
                 : 1;
@@ -148,29 +149,38 @@ public class SwapService {
         if (availableCount == 0) {
             throw new IllegalStateException("Trạm hiện không còn pin đầy khả dụng để thực hiện swap.");
         } else if (availableCount < requiredCount) {
-            System.out.println(" Cảnh báo: Trạm chỉ có " + availableCount + "/" + requiredCount + " pin đầy.");
+            System.out.println("⚠️ Cảnh báo: Trạm chỉ có " + availableCount + "/" + requiredCount + " pin đầy.");
         }
 
-        // Lấy Staff userId từ SecurityContext hoặc request
-        String currentStaffUserId = null;
-        Authentication auth = SecurityContextHolder.getContext() != null
-                ? SecurityContextHolder.getContext().getAuthentication()
-                : null;
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() != null) {
-            currentStaffUserId = auth.getName(); // ví dụ: ST001
-        }
+        // ✅ Lấy staffUserId từ request và kiểm tra hợp lệ
+        String currentStaffUserId = request.getStaffUserId();
         if (currentStaffUserId == null || currentStaffUserId.isBlank()) {
-            currentStaffUserId = request.getStaffUserId();
+            throw new IllegalArgumentException("Thiếu mã nhân viên (staffUserId) trong request.");
         }
+
+        // ✅ Kiểm tra staff có thuộc trạm đang xử lý hay không (nếu có bảng mapping staff ↔ station)
+        // ⚠️ Nếu bạn chưa có repository mapping staff-trạm thì bỏ phần này, giữ nguyên comment.
+
+        boolean staffInStation = staffAssignRepository.existsByStationIdAndUser_UserId(
+                booking.getStation().getStationId(),
+                currentStaffUserId
+        );
+
+        if (!staffInStation) {
+        throw new IllegalStateException("Nhân viên không thuộc trạm này, không thể thực hiện swap.");
+    }
+
 
         List<SwapResponseDTO> results = new ArrayList<>();
         boolean allSuccess = true;
 
         for (String batteryInId : batteryInIds) {
             try {
+                // Gọi transactional mới cho từng pin
                 SwapService self = context.getBean(SwapService.class);
-                SwapResponseDTO response = handleSingleSwap(booking, batteryInId, currentStaffUserId);
+                SwapResponseDTO response = self.handleSingleSwap(booking, batteryInId, currentStaffUserId);
                 results.add(response);
+
                 if (!"SUCCESS".equalsIgnoreCase(response.getStatus())) {
                     allSuccess = false;
                 }
@@ -200,9 +210,10 @@ public class SwapService {
 
         bookingRepository.save(booking);
 
-        // Nếu chỉ có 1 pin thì trả object, còn nhiều thì trả list
+        // ✅ Nếu chỉ có 1 pin thì trả object, còn nhiều thì trả list
         return results.size() == 1 ? results.get(0) : results;
     }
+
 
 
 
@@ -341,4 +352,35 @@ public class SwapService {
                 .dockInSlot(dockInCode)
                 .build();
     }
+
+    private String resolveStaffUserId(SwapRequest request) {
+        Authentication auth = SecurityContextHolder.getContext() != null
+                ? SecurityContextHolder.getContext().getAuthentication()
+                : null;
+
+        // 1) Ưu tiên lấy từ SecurityContext (JWT)
+        if (auth != null && auth.isAuthenticated()) {
+            Object principal = auth.getPrincipal();
+            // Tránh anonymousUser
+            if (principal != null && !"anonymousUser".equals(principal)) {
+                // Nếu bạn có CustomUserDetails thì lấy đúng userId staff ở đây
+                // Ví dụ:
+                // if (principal instanceof CustomUserDetails cud) return cud.getUserId();
+                // Nếu chưa có, tối thiểu dùng auth.getName()
+                String name = auth.getName();
+                if (name != null && !name.isBlank() && !"anonymousUser".equalsIgnoreCase(name)) {
+                    return name; // ví dụ "ST001"
+                }
+            }
+        }
+
+        // 2) Fallback: lấy từ request (FE bắt buộc gửi khi chưa login)
+        if (request.getStaffUserId() != null && !request.getStaffUserId().isBlank()) {
+            return request.getStaffUserId();
+        }
+
+        // 3) Không có thì fail sớm
+        throw new IllegalStateException("Thiếu staffUserId (chưa đăng nhập staff hoặc không truyền staffUserId).");
+    }
+
 }

@@ -160,15 +160,21 @@ public class AuthController {
 
     @PostMapping("/google")
     @Operation(summary = "Đăng nhập / Đăng ký qua Google")
-    public ResponseEntity<ApiResponseDto> loginWithGoogle(@RequestBody GoogleLoginRequest request) {
+    public ResponseEntity<?> loginWithGoogle(@RequestBody GoogleLoginRequest request) {
         try {
             GoogleUserInfo info = googleService.verifyAndExtract(request.getToken());
-            Map<String, Object> result = authService.handleGoogleLogin(info);
-            return ResponseEntity.ok(new ApiResponseDto(true, "Đăng nhập Google thành công", result));
+            AuthResponse result = authService.handleGoogleLogin(info);
+
+            // ✅ trả thẳng result ra, KHÔNG bọc data
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponseDto(false, "Lỗi xác thực Google: " + e.getMessage()));
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Lỗi xác thực Google: " + e.getMessage()
+                    ));
         }
     }
+
 
 }
