@@ -55,6 +55,7 @@ public class Swap {
         SUCCESS,              // Đổi thành công
         WAITING_USER_RETRY,   // Khác model
         FAULT,                // SoH thấp (đổi bình thường nhưng không đút pin vào dock)
-        CANCELLED             // Hủy
+        CANCELLED,
+        CANCELLED_TEMP// Hủy
     }
 }

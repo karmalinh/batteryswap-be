@@ -24,6 +24,81 @@ public class SwapService {
     private final DockSlotRepository dockSlotRepository;
 
     @Transactional
+    public Object cancelSwap(Long swapId, String cancelType) {
+        Swap swap = swapRepository.findById(swapId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy swap #" + swapId));
+
+        Booking booking = swap.getBooking();
+        if (booking == null) {
+            throw new IllegalStateException("Không xác định được booking của swap này.");
+        }
+
+        // 🔹 TEMP = hủy tạm thời (user có thể quay lại retry)
+        if ("TEMP".equalsIgnoreCase(cancelType)) {
+            swap.setStatus(Swap.SwapStatus.CANCELLED_TEMP);
+            swap.setDescription("Swap bị hủy tạm thời. Chờ người dùng quay lại xác nhận.");
+            swapRepository.save(swap);
+            return Map.of(
+                    "swapId", swapId,
+                    "status", "CANCELLED_TEMP",
+                    "message", "Đã hủy tạm thời swap #" + swapId
+            );
+        }
+
+        // 🔹 PERMANENT = hủy hoàn toàn, rollback dữ liệu
+        if ("PERMANENT".equalsIgnoreCase(cancelType)) {
+            // Rollback: đưa lại pinOut vào slot, gỡ pinIn ra
+            String batteryOutId = swap.getBatteryOutId();
+            String batteryInId = swap.getBatteryInId();
+
+            Battery batteryOut = batteryRepository.findById(batteryOutId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy pinOut: " + batteryOutId));
+            Battery batteryIn = batteryRepository.findById(batteryInId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy pinIn: " + batteryInId));
+
+            // Trả pinOut về trạm
+            DockSlot emptySlot = dockSlotRepository
+                    .findFirstByDock_Station_StationIdAndIsActiveTrueAndBatteryIsNull(
+                            booking.getStation().getStationId())
+                    .orElseThrow(() -> new IllegalStateException("Không còn slot trống để trả pinOut."));
+            emptySlot.setBattery(batteryOut);
+            emptySlot.setSlotStatus(DockSlot.SlotStatus.OCCUPIED);
+
+            batteryOut.setBatteryStatus(Battery.BatteryStatus.AVAILABLE);
+            batteryOut.setStationId(booking.getStation().getStationId());
+            batteryOut.setDockSlot(emptySlot);
+
+            // Gỡ pinIn ra khỏi trạm (vì bị hủy)
+            batteryIn.setDockSlot(null);
+            batteryIn.setStationId(null);
+            batteryIn.setBatteryStatus(Battery.BatteryStatus.IN_USE);
+
+            batteryRepository.save(batteryOut);
+            batteryRepository.save(batteryIn);
+            dockSlotRepository.save(emptySlot);
+
+            // Cập nhật trạng thái booking + swap
+            booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+            booking.setCancellationReason("Staff hủy swap khác model (permanent cancel).");
+
+            swap.setStatus(Swap.SwapStatus.CANCELLED);
+            swap.setDescription("Staff đã hủy hoàn toàn swap khác model. Đã rollback pin.");
+
+            bookingRepository.save(booking);
+            swapRepository.save(swap);
+
+            return Map.of(
+                    "swapId", swapId,
+                    "status", "CANCELLED",
+                    "message", "Đã hủy hoàn toàn swap #" + swapId + " và rollback pin thành công."
+            );
+        }
+
+        throw new IllegalArgumentException("Loại hủy không hợp lệ: " + cancelType);
+    }
+
+
+    @Transactional
     public Object commitSwap(SwapRequest request) {
         // Booking từ QR
         Booking booking = bookingRepository.findById(request.getBookingId())

@@ -38,4 +38,23 @@ public class SwapController {
         }
     }
 
+    @PostMapping("/cancel")
+    public ResponseEntity<?> cancelSwap(@RequestBody Map<String, String> payload) {
+        try {
+            Long swapId = Long.parseLong(payload.get("swapId"));
+            String cancelType = payload.get("cancelType"); // TEMP hoặc PERMANENT
+            Object response = swapService.cancelSwap(swapId, cancelType);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", response
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+
 }
