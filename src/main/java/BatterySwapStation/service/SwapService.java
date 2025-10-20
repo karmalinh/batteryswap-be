@@ -40,6 +40,25 @@ public class SwapService {
         Battery batteryIn = batteryRepository.findById(request.getBatteryInId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy pin khách đưa: " + request.getBatteryInId()));
 
+        // ⚙️ Gộp phần validate battery ngay tại đây
+        if (!batteryIn.isActive()) {
+            throw new IllegalStateException("Pin này đang bị vô hiệu hóa hoặc không hoạt động.");
+        }
+
+        if (batteryIn.getBatteryStatus() == Battery.BatteryStatus.MAINTENANCE) {
+            throw new IllegalStateException("Pin này đang trong bảo trì, không thể swap.");
+        }
+
+        if (batteryIn.getBatteryType() == null) {
+            throw new IllegalStateException("Pin chưa xác định loại, vui lòng kiểm tra lại.");
+        }
+
+        // 🧩 Kiểm tra loại pin có khớp với model xe trong booking không
+        String bookedVehicleType = booking.getVehicleType(); // giả định bạn đã có field này trong Booking
+        if (bookedVehicleType != null && !batteryIn.getBatteryType().name().equalsIgnoreCase(bookedVehicleType)) {
+            throw new IllegalStateException("Pin không cùng loại với model xe đã booking, vui lòng mang đúng loại pin.");
+        }
+
         // 3️⃣ Tự chọn pin đầy khả dụng (batteryOut)
         DockSlot dockOutSlot = dockSlotRepository
                 .findFirstByDock_Station_StationIdAndSlotStatusAndBattery_BatteryStatusOrderByDock_DockNameAscSlotNumberAsc(
@@ -164,4 +183,5 @@ public class SwapService {
                 .dockInSlot(dockInCode)
                 .build();
     }
+
 }
