@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 @Transactional
 public class BookingService {
 
-    // 1. KHAI BÁO TẤT CẢ LÀ FINAL (KHÔNG CÓ @AUTOWIRED)
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final StationRepository stationRepository;
@@ -36,7 +35,7 @@ public class BookingService {
     private final InvoiceService invoiceService;
     private final InvoiceRepository invoiceRepository;
     private final ObjectMapper objectMapper;
-    // (Và bất kỳ repository/service nào khác bạn có)
+
 
     // 2. TẠO CONSTRUCTOR ĐỂ TIÊM TẤT CẢ
     @Autowired

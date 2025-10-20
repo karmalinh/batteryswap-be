@@ -64,25 +64,17 @@ public class InvoiceService {
      */
     @Transactional
     public Invoice createInvoice(Invoice invoice) {
-        invoice.setInvoiceId(null); // Đảm bảo sử dụng sequence tự động
+        invoice.setInvoiceId(null);
 
-        // Đặt giá mặc định nếu chưa có
         if (invoice.getPricePerSwap() == null) {
             invoice.setPricePerSwap(systemPriceService.getCurrentPrice());
         }
-
-        // Đặt ngày tạo
         if (invoice.getCreatedDate() == null) {
             invoice.setCreatedDate(LocalDate.now());
         }
-
-        // Đặt trạng thái mặc định nếu chưa có
         if (invoice.getInvoiceStatus() == null) {
             invoice.setInvoiceStatus(Invoice.InvoiceStatus.PENDING);
         }
-
-        // [ĐÃ XÓA] - Lệnh 'invoice.calculateTotalAmount();'
-        // Lệnh này gây lỗi setTotalAmount = 0
 
         return invoiceRepository.save(invoice);
     }
