@@ -43,6 +43,24 @@ public class SwapService {
             throw new IllegalArgumentException("Thiếu thông tin pin khách đưa.");
         }
 
+        //  Kiểm tra số lượng pin theo booking (thiếu / thừa)
+        Integer requiredCount = (booking.getBatteryCount() != null && booking.getBatteryCount() > 0)
+                ? booking.getBatteryCount()
+                : 1;
+
+        if (batteryInIds.size() < requiredCount) {
+            throw new IllegalArgumentException(
+                    "Booking #" + booking.getBookingId() + " yêu cầu đổi " + requiredCount + " pin, " +
+                            "nhưng chỉ nhận được " + batteryInIds.size() + " pin. Vui lòng nhập đủ."
+            );
+        }
+        if (batteryInIds.size() > requiredCount) {
+            throw new IllegalArgumentException(
+                    "Booking #" + booking.getBookingId() + " chỉ cho phép đổi " + requiredCount + " pin, " +
+                            "nhưng đã nhập " + batteryInIds.size() + " pin. Vui lòng kiểm tra lại."
+            );
+        }
+
         // Lấy Staff userId từ SecurityContext hoặc request
         String currentStaffUserId = null;
         Authentication auth = SecurityContextHolder.getContext() != null
