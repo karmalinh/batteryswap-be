@@ -26,7 +26,7 @@ public class SwapService {
 
     @Transactional
     public SwapResponseDTO commitSwap(SwapRequest request) {
-        // 1️⃣ Booking từ QR
+        // Booking từ QR
         Booking booking = bookingRepository.findById(request.getBookingId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking ID: " + request.getBookingId()));
 
@@ -36,11 +36,11 @@ public class SwapService {
 
         Integer stationId = booking.getStation().getStationId();
 
-        // 2️⃣ Pin KH đưa (batteryIn)
+        //  Pin KH đưa (batteryIn)
         Battery batteryIn = batteryRepository.findById(request.getBatteryInId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy pin khách đưa: " + request.getBatteryInId()));
 
-        // ⚙️ Gộp phần validate battery ngay tại đây
+        //  validate battery
         if (!batteryIn.isActive()) {
             throw new IllegalStateException("Pin này đang bị vô hiệu hóa hoặc không hoạt động.");
         }
@@ -53,13 +53,14 @@ public class SwapService {
             throw new IllegalStateException("Pin chưa xác định loại, vui lòng kiểm tra lại.");
         }
 
-        // 🧩 Kiểm tra loại pin có khớp với model xe trong booking không
-        String bookedVehicleType = booking.getVehicleType(); // giả định bạn đã có field này trong Booking
-        if (bookedVehicleType != null && !batteryIn.getBatteryType().name().equalsIgnoreCase(bookedVehicleType)) {
-            throw new IllegalStateException("Pin không cùng loại với model xe đã booking, vui lòng mang đúng loại pin.");
+
+        String bookedBatteryType = booking.getBatteryType();
+        if (bookedBatteryType != null && !batteryIn.getBatteryType().name().equalsIgnoreCase(bookedBatteryType)) {
+            throw new IllegalStateException("Pin không cùng loại với loại pin đã booking, vui lòng mang đúng loại pin.");
         }
 
-        // 3️⃣ Tự chọn pin đầy khả dụng (batteryOut)
+
+        //  Tự chọn pin đầy khả dụng (batteryOut)
         DockSlot dockOutSlot = dockSlotRepository
                 .findFirstByDock_Station_StationIdAndSlotStatusAndBattery_BatteryStatusOrderByDock_DockNameAscSlotNumberAsc(
                         stationId,
@@ -100,10 +101,10 @@ public class SwapService {
             description = "Pin khác model - chờ người dùng quay lại xác nhận trong 1 giờ.";
         }
 
-        // 7️⃣ Gắn pinIn vào slot nhận và xử lý SoH
+        // Gắn pinIn vào slot nhận và xử lý SoH
         dockInSlot.setBattery(batteryIn);
 
-        // ✅ Gán stationId cho pin dựa vào slot
+        // Gán stationId cho pin dựa vào slot
         batteryIn.setStationId(dockInSlot.getDock().getStation().getStationId());
         batteryIn.setDockSlot(dockInSlot);
 
@@ -116,22 +117,22 @@ public class SwapService {
             dockInSlot.setSlotStatus(DockSlot.SlotStatus.OCCUPIED);
         }
 
-        // 8️⃣ Nhả pinOut cho user
+        //  Nhả pinOut cho user
         batteryOut.setBatteryStatus(Battery.BatteryStatus.IN_USE);
         dockOutSlot.setBattery(null);
         dockOutSlot.setSlotStatus(DockSlot.SlotStatus.EMPTY);
 
-        // ✅ Reset vị trí pinOut vì nó đã rời trạm
+        // Reset vị trí pinOut vì nó đã rời trạm
         batteryOut.setStationId(null);
         batteryOut.setDockSlot(null);
 
-        // 9️⃣ Lưu DB
+        //  Lưu DB
         batteryRepository.save(batteryIn);
         batteryRepository.save(batteryOut);
         dockSlotRepository.save(dockInSlot);
         dockSlotRepository.save(dockOutSlot);
 
-        // 🔟 Booking status
+        //Booking status
         if (swapStatus == Swap.SwapStatus.WAITING_USER_RETRY) {
             booking.setBookingStatus(Booking.BookingStatus.PENDINGSWAPPING);
         } else {
@@ -140,7 +141,7 @@ public class SwapService {
         }
         bookingRepository.save(booking);
 
-        // 11️⃣ Lấy Staff userId từ SecurityContext hoặc request
+        // Lấy Staff userId từ SecurityContext hoặc request
         String currentStaffUserId = null;
         Authentication auth = SecurityContextHolder.getContext() != null
                 ? SecurityContextHolder.getContext().getAuthentication()
@@ -152,7 +153,7 @@ public class SwapService {
             currentStaffUserId = request.getStaffUserId();
         }
 
-        // 12️⃣ Lưu Swap record
+        // Lưu Swap record
         Integer dockIdForRecord = dockOutSlot.getDock() != null ? dockOutSlot.getDock().getDockId() : stationId;
 
         Swap swap = Swap.builder()
@@ -171,7 +172,7 @@ public class SwapService {
 
         swapRepository.save(swap);
 
-        // 13️⃣ Response
+        // Response
         return SwapResponseDTO.builder()
                 .swapId(swap.getSwapId())
                 .status(swap.getStatus().toString())
