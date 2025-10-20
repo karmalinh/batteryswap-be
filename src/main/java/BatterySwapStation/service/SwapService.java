@@ -41,7 +41,7 @@ public class SwapService {
             throw new IllegalStateException("Không xác định được booking của swap này.");
         }
 
-        // 🔹 TEMP = hủy tạm thời (user có thể quay lại retry)
+        //  TEMP = hủy tạm thời (user có thể quay lại retry)
         if ("TEMP".equalsIgnoreCase(cancelType)) {
             swap.setStatus(Swap.SwapStatus.CANCELLED_TEMP);
             swap.setDescription("Swap bị hủy tạm thời. Chờ người dùng quay lại xác nhận.");
