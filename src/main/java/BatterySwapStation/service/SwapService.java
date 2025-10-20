@@ -353,34 +353,4 @@ public class SwapService {
                 .build();
     }
 
-    private String resolveStaffUserId(SwapRequest request) {
-        Authentication auth = SecurityContextHolder.getContext() != null
-                ? SecurityContextHolder.getContext().getAuthentication()
-                : null;
-
-        // 1) Ưu tiên lấy từ SecurityContext (JWT)
-        if (auth != null && auth.isAuthenticated()) {
-            Object principal = auth.getPrincipal();
-            // Tránh anonymousUser
-            if (principal != null && !"anonymousUser".equals(principal)) {
-                // Nếu bạn có CustomUserDetails thì lấy đúng userId staff ở đây
-                // Ví dụ:
-                // if (principal instanceof CustomUserDetails cud) return cud.getUserId();
-                // Nếu chưa có, tối thiểu dùng auth.getName()
-                String name = auth.getName();
-                if (name != null && !name.isBlank() && !"anonymousUser".equalsIgnoreCase(name)) {
-                    return name; // ví dụ "ST001"
-                }
-            }
-        }
-
-        // 2) Fallback: lấy từ request (FE bắt buộc gửi khi chưa login)
-        if (request.getStaffUserId() != null && !request.getStaffUserId().isBlank()) {
-            return request.getStaffUserId();
-        }
-
-        // 3) Không có thì fail sớm
-        throw new IllegalStateException("Thiếu staffUserId (chưa đăng nhập staff hoặc không truyền staffUserId).");
-    }
-
 }
