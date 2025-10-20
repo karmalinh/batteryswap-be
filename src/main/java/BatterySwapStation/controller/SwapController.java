@@ -25,7 +25,7 @@ public class SwapController {
     @PostMapping("/commit")
     public ResponseEntity<?> commitSwap(@RequestBody SwapRequest request) {
         try {
-            SwapResponseDTO response = swapService.commitSwap(request);
+            Object response = swapService.commitSwap(request);  // 👈 sửa dòng này
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "data", response
@@ -37,4 +37,5 @@ public class SwapController {
             ));
         }
     }
+
 }
