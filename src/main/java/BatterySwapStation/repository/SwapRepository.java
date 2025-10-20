@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface SwapRepository extends JpaRepository<Swap, Long> {
     List<Swap> findByBookingBookingId(Long bookingId);
+    List<Swap> findByStatus(Swap.SwapStatus status);
+
 }

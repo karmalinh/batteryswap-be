@@ -6,10 +6,12 @@ import BatterySwapStation.entity.*;
 import BatterySwapStation.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -180,6 +182,31 @@ public class SwapService {
 
         // Nếu chỉ có 1 pin thì trả object, còn nhiều thì trả list
         return results.size() == 1 ? results.get(0) : results;
+    }
+
+    @Scheduled(fixedRate = 600000) // 600000 ms = 10 phút
+    @Transactional
+    public void autoCancelUnconfirmedSwaps() {
+        List<Swap> pendingSwaps = swapRepository.findByStatus(Swap.SwapStatus.WAITING_USER_RETRY);
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Swap swap : pendingSwaps) {
+            if (swap.getCompletedTime() != null) {
+                Duration duration = Duration.between(swap.getCompletedTime(), now);
+                if (duration.toHours() >= 1) {
+                    Booking booking = swap.getBooking();
+                    if (booking != null) {
+                        booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+                        booking.setCancellationReason("Auto-cancel sau 1 tiếng không xác nhận lại.");
+                        bookingRepository.save(booking);
+                    }
+
+                    swap.setStatus(Swap.SwapStatus.CANCELLED);
+                    swap.setDescription("Tự động hủy sau 1 tiếng không xác nhận.");
+                    swapRepository.save(swap);
+                }
+            }
+        }
     }
 
     private SwapResponseDTO handleSingleSwap(Booking booking, String batteryInId, String staffUserId) {
