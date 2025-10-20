@@ -19,14 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 public class AuthService {
 
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
-    private RoleRepository roleRepository;
-
-    //    @Autowired
-
+    private final RoleRepository roleRepository;
     private final JwtService jwtService;
-
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 
