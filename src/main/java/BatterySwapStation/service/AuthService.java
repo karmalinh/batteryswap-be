@@ -1,6 +1,7 @@
 package BatterySwapStation.service;
 
 import BatterySwapStation.dto.RoleDTO;
+import BatterySwapStation.utils.UserIdGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 
 public class AuthService {
-
+    private final UserIdGenerator userIdGenerator;
     private final UserRepository userRepository;
     private final UserService userService;
     private final RoleRepository roleRepository;
@@ -84,22 +85,23 @@ public class AuthService {
 
 
     @Transactional
-    public Map<String, Object> handleGoogleLogin(GoogleUserInfo info) {
-        // tìm user theo email (User, không Optional)
+    public AuthResponse handleGoogleLogin(GoogleUserInfo info) {
+        // Tìm user theo email
         User user = userRepository.findByEmail(info.getEmail());
 
         if (user == null) {
-            // tìm role USER (Role, không Optional)
-            Role defaultRole = roleRepository.findByRoleName("USER");
+            // tìm role mặc định DRIVER
+            Role defaultRole = roleRepository.findByRoleName("DRIVER");
             if (defaultRole == null) {
-                throw new IllegalStateException("Role USER chưa tồn tại trong hệ thống");
+                throw new IllegalStateException("Role DRIVER chưa tồn tại trong hệ thống");
             }
 
+            // tạo user mới
             user = new User();
-            user.setUserId(generateUserId());
+            user.setUserId(userIdGenerator.generateUserId(defaultRole)); // ✅ dùng util class
             user.setFullName(info.getName());
             user.setEmail(info.getEmail());
-            user.setPassword(""); // để trống
+            user.setPassword(""); // chưa có mật khẩu
             user.setAddress("");
             user.setPhone("");
             user.setActive(true);
@@ -109,22 +111,28 @@ public class AuthService {
             userRepository.save(user);
         }
 
-        // tạo JWT (hàm generateToken(User))
-        String jwt = jwtService.generateToken(user);
+        // tạo JWT token
+        String token = jwtService.generateToken(
+                user.getUserId(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getRole().getRoleName()
+        );
 
-        return Map.of(
-                "token", jwt,
-                "email", user.getEmail(),
-                "fullName", user.getFullName(),
-                "isNewUser", user.getPassword() == null || user.getPassword().isBlank()
+
+        return new AuthResponse(
+                "Đăng kí mới thành công, vui lòng cập nhật địa chỉ và SĐT sau nhé~.",
+                user.getUserId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getPhone(),
+                user.getRole().getRoleName(),
+                token
         );
     }
 
-    // Sinh mã userId tự động
-    private String generateUserId() {
-        long count = userRepository.count() + 1;
-        return String.format("US%03d", count);
-    }
+
+
 
 
 }
