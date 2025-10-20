@@ -51,6 +51,7 @@ public class Swap {
     @Column(name = "Description", length = 255)
     private String description;
 
+
     public enum SwapStatus {
         SUCCESS,              // Đổi thành công
         WAITING_USER_RETRY,   // Khác model
