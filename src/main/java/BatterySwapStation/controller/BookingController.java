@@ -8,6 +8,7 @@ import BatterySwapStation.entity.Booking;
 import BatterySwapStation.entity.Battery;
 import BatterySwapStation.repository.BookingRepository;
 import BatterySwapStation.dto.BookingRequest;
+import BatterySwapStation.utils.QrTokenUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -842,19 +843,25 @@ public class BookingController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(new ApiResponseDto(false, "Không tìm thấy booking #" + bookingId));
             }
-            String qrToken = bookingId.toString(); // hoặc mã hóa sau này
+
+            // ✅ Sinh token mã hoá ngắn bằng QrTokenUtil
+            String qrToken = QrTokenUtil.generateToken(bookingId);
             return ResponseEntity.ok(new ApiResponseDto(true, "Đã tạo QR", Map.of("token", qrToken)));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponseDto(false, "Lỗi tạo QR: " + e.getMessage()));
         }
     }
 
+
     @GetMapping("/verifyQr")
     @Operation(summary = "Xác thực QR booking", description = "FE staff quét QR và gửi token lên để lấy thông tin booking")
     public ResponseEntity<ApiResponseDto> verifyQr(@RequestParam("token") String token) {
         try {
-            Long bookingId = Long.parseLong(token.trim());
+            // ✅ Giải mã token để lấy bookingId thật
+            long bookingId = QrTokenUtil.extractBookingId(token);
+
             Map<String, Object> bookingData = bookingService.getBookingById(bookingId);
             if (bookingData == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -863,21 +870,20 @@ public class BookingController {
 
             String status = (String) bookingData.get("bookingStatus");
             if ("COMPLETED".equalsIgnoreCase(status) || "CANCELLED".equalsIgnoreCase(status)) {
-                return ResponseEntity.ok(
-                        new ApiResponseDto(false,
-                                String.format("QR đã hết hiệu lực. Booking #%d ở trạng thái %s.", bookingId, status))
-                );
+                return ResponseEntity.ok(new ApiResponseDto(false,
+                        String.format("QR đã hết hiệu lực. Booking #%d ở trạng thái %s.", bookingId, status)));
             }
 
             return ResponseEntity.ok(new ApiResponseDto(true, "QR hợp lệ", bookingData));
 
-        } catch (NumberFormatException e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ApiResponseDto(false, "Token QR không hợp lệ"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponseDto(false, "Lỗi xác thực QR: " + e.getMessage()));
         }
     }
+
 
 
 
