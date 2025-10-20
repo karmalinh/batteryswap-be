@@ -4,15 +4,16 @@ import BatterySwapStation.dto.SwapRequest;
 import BatterySwapStation.dto.SwapResponseDTO;
 import BatterySwapStation.entity.*;
 import BatterySwapStation.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
+import org.springframework.context.ApplicationContext;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.transaction.annotation.Propagation;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -22,7 +23,8 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class SwapService {
-
+    @Autowired
+    private ApplicationContext context;
     private final SwapRepository swapRepository;
     private final BookingRepository bookingRepository;
     private final BatteryRepository batteryRepository;
@@ -166,6 +168,7 @@ public class SwapService {
 
         for (String batteryInId : batteryInIds) {
             try {
+                SwapService self = context.getBean(SwapService.class);
                 SwapResponseDTO response = handleSingleSwap(booking, batteryInId, currentStaffUserId);
                 results.add(response);
                 if (!"SUCCESS".equalsIgnoreCase(response.getStatus())) {
