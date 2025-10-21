@@ -6,6 +6,7 @@ import BatterySwapStation.dto.InvoiceResponseDTO;
 import BatterySwapStation.dto.BookingInfoDTO;
 import BatterySwapStation.dto.InvoiceSimpleResponseDTO;
 import BatterySwapStation.entity.Payment;
+import BatterySwapStation.entity.SystemPrice;
 import BatterySwapStation.repository.InvoiceRepository;
 import BatterySwapStation.repository.BookingRepository;
 import BatterySwapStation.repository.PaymentRepository;
@@ -74,7 +75,7 @@ public class InvoiceService {
         invoice.setInvoiceId(null);
 
         if (invoice.getPricePerSwap() == null) {
-            invoice.setPricePerSwap(systemPriceService.getCurrentPrice());
+            invoice.setPricePerSwap(systemPriceService.getPriceByType(SystemPrice.PriceType.BATTERY_SWAP));
         }
         if (invoice.getCreatedDate() == null) {
             invoice.setCreatedDate(LocalDateTime.now().now());
@@ -253,7 +254,7 @@ public class InvoiceService {
     public Invoice createInvoiceWithBookings(List<Long> bookingIds) {
         // Tạo invoice mới
         Invoice invoice = new Invoice();
-        invoice.setPricePerSwap(systemPriceService.getCurrentPrice());
+        invoice.setPricePerSwap(systemPriceService.getPriceByType(SystemPrice.PriceType.BATTERY_SWAP));
         invoice.setCreatedDate(LocalDateTime.now());
         invoice.setNumberOfSwaps(0);
         invoice.setTotalAmount(0.0);

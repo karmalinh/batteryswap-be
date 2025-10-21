@@ -2,6 +2,7 @@ package BatterySwapStation.controller;
 
 import BatterySwapStation.dto.ApiResponseDto;
 import BatterySwapStation.dto.InvoiceSimpleResponseDTO;
+import BatterySwapStation.entity.SystemPrice;
 import BatterySwapStation.repository.InvoiceRepository;
 import BatterySwapStation.service.InvoiceService;
 import BatterySwapStation.entity.Invoice;
@@ -150,6 +151,7 @@ public class InvoiceController {
     public ResponseEntity<Map<String, Object>> createInvoiceFromBatteries(
             @RequestParam @Parameter(description = "ID của user") String userId,
             @RequestBody List<String> batteryIds) {
+
         try {
             if (batteryIds == null || batteryIds.isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
@@ -158,12 +160,13 @@ public class InvoiceController {
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
-            // ✅ BƯỚC 2: Lấy giá cố định (15.000) từ service
-            double standardSwapPrice = systemPriceService.getCurrentPrice();
+            // ✅ BƯỚC 2: [ĐÃ SỬA] Lấy giá đổi pin tiêu chuẩn (logic mới)
+            double standardSwapPrice = systemPriceService.getPriceByType(SystemPrice.PriceType.BATTERY_SWAP);
 
             // Tính tổng tiền từ danh sách pin
             double totalAmount = 0.0;
             List<Map<String, Object>> batteryDetails = new ArrayList<>();
+            List<Battery> batteriesToUpdate = new ArrayList<>(); // <-- TỐI ƯU HÓA: Tạo list chờ
 
             for (String batteryId : batteryIds) {
                 // Lấy battery thực tế từ database
@@ -175,34 +178,41 @@ public class InvoiceController {
                     throw new RuntimeException("Pin " + batteryId + " không khả dụng");
                 }
 
-                // ✅ BƯỚC 3: SỬA LỖI TẠI ĐÂY
-                // Tính tiền cho pin - SỬ DỤNG GIÁ CỐ ĐỊNH LẤY TỪ SERVICE
-                double batteryAmount = standardSwapPrice; // Thay thế cho battery.getCalculatedPrice()
-                totalAmount += batteryAmount;
+                // Tính tiền cho pin - SỬ DỤNG GIÁ CỐ ĐỊNH
+                totalAmount += standardSwapPrice;
 
-                // Cập nhật trạng thái pin sang IN_USE
+                // ⚠️ CẢNH BÁO LOGIC:
+                // Việc set IN_USE ở đây rất nguy hiểm. Nếu user tạo invoice
+                // nhưng không thanh toán (bị timeout), pin này sẽ bị kẹt
+                // ở trạng thái IN_USE. Bạn nên xem xét lại logic này.
                 battery.setBatteryStatus(Battery.BatteryStatus.IN_USE);
-                batteryRepository.save(battery);
+                batteriesToUpdate.add(battery); // <-- TỐI ƯU HÓA: Thêm vào list, chưa save
 
                 // Thêm thông tin pin thực tế
                 Map<String, Object> batteryInfo = new HashMap<>();
                 batteryInfo.put("batteryId", battery.getBatteryId());
                 batteryInfo.put("batteryType", battery.getBatteryType().toString());
-                batteryInfo.put("price", batteryAmount); // <--- Dùng giá cố định
+                batteryInfo.put("price", standardSwapPrice); // <--- Dùng giá cố định
                 batteryInfo.put("stationId", battery.getStationId());
                 batteryDetails.add(batteryInfo);
             }
+
+            // ✅ TỐI ƯU HÓA: Cập nhật trạng thái tất cả pin 1 LẦN
+            batteryRepository.saveAll(batteriesToUpdate);
 
             // Tạo invoice
             Invoice invoice = new Invoice();
             invoice.setUserId(userId);
             invoice.setTotalAmount(totalAmount);
-            // Tính giá trung bình
-            invoice.setPricePerSwap(totalAmount / batteryIds.size());
-            // Số lượng swap (pin)
+
+            // ✅ SỬA LOGIC: Gán giá chuẩn cho 'pricePerSwap'
+            // (Thay vì 'totalAmount / batteryIds.size()')
+            invoice.setPricePerSwap(standardSwapPrice);
+
             invoice.setNumberOfSwaps(batteryIds.size());
             invoice.setCreatedDate(java.time.LocalDateTime.now());
 
+            // Gọi service (đã sửa) để lưu invoice (sẽ không bị lỗi số 0)
             Invoice savedInvoice = invoiceService.createInvoice(invoice);
 
             // Trả về response đơn giản
@@ -213,7 +223,7 @@ public class InvoiceController {
             response.put("totalAmount", savedInvoice.getTotalAmount());
             response.put("pricePerSwap", savedInvoice.getPricePerSwap());
             response.put("numberOfSwaps", savedInvoice.getNumberOfSwaps());
-            response.put("status", "PENDING");
+            response.put("status", savedInvoice.getInvoiceStatus().toString()); // Lấy status từ DB
             response.put("batteriesCount", batteryIds.size());
             response.put("message", "Invoice được tạo thành công");
 

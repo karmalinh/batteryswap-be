@@ -180,7 +180,7 @@ public class BookingService {
         // =============================================================
 
         // Tính giá theo systemPrice (Giữ nguyên)
-        Double basePrice = systemPriceService.getCurrentPrice();
+        Double basePrice = systemPriceService.getPriceByType(SystemPrice.PriceType.BATTERY_SWAP);
         Double bookingAmount = basePrice * requestedBatteryCount.doubleValue();
 
         // Lấy vehicleType từ vehicle (Giữ nguyên)
@@ -208,7 +208,7 @@ public class BookingService {
                 .build();
         Booking savedBooking = bookingRepository.save(booking);
 
-        // Tạo thông báo (GiVũ nguyên)
+        // Tạo thông báo (Giữ nguyên)
         BookingResponse response = convertToResponse(savedBooking);
         String createMessage = String.format(
                 "Booking #%d được tạo thành công! Tổng tiền: %.0f VND",
@@ -806,7 +806,8 @@ public class BookingService {
             }
 
             // Verify số tiền thanh toán có đúng không
-            Double expectedAmount = systemPriceService.getCurrentPrice() * request.getQuantity();
+            Double swapPrice = systemPriceService.getPriceByType(SystemPrice.PriceType.BATTERY_SWAP);
+            Double expectedAmount = swapPrice * request.getQuantity();
             if (!expectedAmount.equals(request.getPaidAmount())) {
                 throw new IllegalArgumentException("Số tiền thanh toán không đúng. Mong đợi: " + expectedAmount + ", Nhận được: " + request.getPaidAmount());
             }
@@ -1033,7 +1034,7 @@ public class BookingService {
      */
     private Double calculateBookingAmountByVehicleBatteryType(Vehicle vehicle) {
         // Lấy giá thống nhất từ SystemPrice (không phân biệt loại pin)
-        double basePrice = systemPriceService.getCurrentPrice();
+        double basePrice = systemPriceService.getPriceByType(SystemPrice.PriceType.BATTERY_SWAP);
 
         // Nhân với số lượng pin của xe (nếu có)
         Integer batteryCount = vehicle.getBatteryCount();
