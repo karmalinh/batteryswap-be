@@ -4,8 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
-// [ĐÃ XÓA] các import: Autowired, Configurable, SystemPriceService
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -28,7 +27,7 @@ public class Invoice {
     private String userId; // Thêm userId
 
     @Column(name = "createddate")
-    private LocalDate createdDate;
+    private LocalDateTime createdDate;
 
     @Column(name = "totalamount")
     private Double totalAmount;
@@ -81,11 +80,11 @@ public class Invoice {
         this.invoiceId = id;
     }
 
-    public LocalDate getCreatedDate() {
+    public LocalDateTime getCreatedDate() {
         return createdDate;
     }
 
-    public void setCreatedDate(LocalDate createdDate) {
+    public void setCreatedDate(LocalDateTime createdDate) {
         this.createdDate = createdDate;
     }
 
@@ -164,8 +163,4 @@ public class Invoice {
         this.numberOfSwaps = totalBookings;
         this.totalAmount = totalSum;
     }
-
-    // [ĐÃ XÓA] - Hàm @PrePersist
-    // @PrePersist
-    // protected void onPrePersist() { ... }
 }

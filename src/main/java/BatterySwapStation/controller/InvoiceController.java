@@ -13,7 +13,9 @@ import BatterySwapStation.service.SystemPriceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -199,7 +201,7 @@ public class InvoiceController {
             invoice.setPricePerSwap(totalAmount / batteryIds.size());
             // Số lượng swap (pin)
             invoice.setNumberOfSwaps(batteryIds.size());
-            invoice.setCreatedDate(java.time.LocalDate.now());
+            invoice.setCreatedDate(java.time.LocalDateTime.now());
 
             Invoice savedInvoice = invoiceService.createInvoice(invoice);
 
@@ -294,22 +296,83 @@ public class InvoiceController {
      * API để lọc Invoices theo trạng thái
      * Ví dụ: GET /api/invoices/status/PAID
      * GET /api/invoices/status/PENDING
+     * GET /api/invoices/status/PAYMENTFAILED
      */
     @GetMapping("/status/{status}")
-    // ✅ CẬP NHẬT MÔ TẢ
-    @Operation(summary = "Lọc hóa đơn theo trạng thái", description = "Lấy danh sách hóa đơn theo trạng thái (PENDING hoặc PAID)")
+    @Operation(
+            summary = "Lọc hóa đơn theo trạng thái",
+            description = "Lấy danh sách hóa đơn theo trạng thái (PENDING, PAID, PAYMENTFAILED)"
+    )
     public ResponseEntity<?> getInvoicesByStatus(
-            @Parameter(description = "Trạng thái cần lọc (PENDING, PAID)") @PathVariable String status) {
+            @Parameter(description = "Trạng thái cần lọc (PENDING, PAID, PAYMENTFAILED)")
+            @PathVariable String status) {
 
         try {
+            // Gọi service (service sẽ throw IllegalArgumentException nếu status không hợp lệ)
             List<InvoiceSimpleResponseDTO> invoices = invoiceService.getInvoicesByStatus(status);
+
+            // Kiểm tra kết quả
             if (invoices.isEmpty()) {
-                return ResponseEntity.noContent().build(); // 204
+                //  Status hợp lệ nhưng không có invoice
+                return ResponseEntity.ok(new ApiResponseDto(
+                        true,
+                        String.format("Không tìm thấy hóa đơn nào có trạng thái '%s'", status.toUpperCase()),
+                        new ArrayList<>()
+                ));
             }
-            return ResponseEntity.ok(invoices);
+
+            //  Có invoice
+            return ResponseEntity.ok(new ApiResponseDto(
+                    true,
+                    String.format("Tìm thấy %d hóa đơn có trạng thái '%s'", invoices.size(), status.toUpperCase()),
+                    invoices
+            ));
+
         } catch (IllegalArgumentException e) {
-            // Bắt lỗi (ví dụ: user nhập "CANCELLED")
-            return ResponseEntity.badRequest().body(new ApiResponseDto(false, e.getMessage()));
+            //  Status không hợp lệ (service đã throw)
+            return ResponseEntity.badRequest().body(new ApiResponseDto(
+                    false,
+                    e.getMessage()
+            ));
+        } catch (Exception e) {
+            //  Lỗi khác
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponseDto(
+                    false,
+                    "Lỗi hệ thống: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * API để người dùng chủ động hủy một invoice PENDING
+     * Ví dụ: POST /api/invoices/10028/cancel
+     */
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Hủy Invoice (cho User)",
+            description = "Cho phép người dùng hủy một invoice đang ở trạng thái PENDING. " +
+                    "Tất cả booking và payment liên quan sẽ bị hủy theo.")
+    public ResponseEntity<ApiResponseDto> cancelInvoice(
+            @Parameter(description = "ID của invoice cần hủy") @PathVariable("id") Long invoiceId) {
+
+        try {
+            // Gọi service
+            invoiceService.userCancelInvoice(invoiceId);
+
+            return ResponseEntity.ok(new ApiResponseDto(
+                    true,
+                    "Invoice ID " + invoiceId + " và các booking liên quan đã được hủy thành công."
+            ));
+
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponseDto(false, e.getMessage()));
+        } catch (IllegalStateException e) {
+            // Bắt lỗi (ví dụ: "Invoice đã được thanh toán")
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiResponseDto(false, e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDto(false, "Lỗi máy chủ: " + e.getMessage()));
         }
     }
 }
