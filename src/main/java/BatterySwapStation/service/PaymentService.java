@@ -187,14 +187,41 @@ public class PaymentService {
         boolean checksumOk = signed.equalsIgnoreCase(secureHash);
         boolean success = checksumOk && "00".equals(query.get("vnp_ResponseCode"));
 
+        // ✅ Xử lý riêng nếu user HỦY giao dịch (responseCode=24)
+        if (checksumOk && "24".equals(query.get("vnp_ResponseCode"))) {
+            String txnRef = query.get("vnp_TxnRef");
+            paymentRepository.findByVnpTxnRef(txnRef).ifPresent(payment -> {
+                if (payment.getPaymentStatus() == Payment.PaymentStatus.PENDING) {
+                    payment.setPaymentStatus(Payment.PaymentStatus.FAILED);
+                    paymentRepository.save(payment);
+
+                    Invoice invoice = payment.getInvoice();
+                    if (invoice != null && invoice.getBookings() != null) {
+                        invoice.setInvoiceStatus(Invoice.InvoiceStatus.PAYMENTFAILED);
+                        invoiceRepository.save(invoice);
+                        for (Booking booking : invoice.getBookings()) {
+                            booking.setBookingStatus(Booking.BookingStatus.FAILED);
+                            bookingRepository.save(booking);
+                        }
+                    }
+                }
+            });
+        }
+
         result.put("success", success);
         result.put("checksumOk", checksumOk);
         result.put("vnp_Amount", query.get("vnp_Amount"));
         result.put("vnp_TxnRef", query.get("vnp_TxnRef"));
-        result.put("message", success ? "Giao dịch thành công" : "Giao dịch thất bại");
+
+        if ("24".equals(query.get("vnp_ResponseCode"))) {
+            result.put("message", "Người dùng đã hủy giao dịch");
+        } else {
+            result.put("message", success ? "Giao dịch thành công" : "Giao dịch thất bại");
+        }
 
         return result;
     }
+
 
 }
 
