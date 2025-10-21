@@ -219,10 +219,15 @@ public class SwapService {
         if (bookedType != null && !batteryIn.getBatteryType().name().equalsIgnoreCase(bookedType))
             throw new IllegalStateException("Pin " + batteryInId + " không cùng loại với pin đã booking.");
 
+        // ✅ Chọn pinOut cùng model với booking hoặc pinIn
         DockSlot dockOutSlot = dockSlotRepository
-                .findFirstByDock_Station_StationIdAndSlotStatusAndBattery_BatteryStatusOrderByDock_DockNameAscSlotNumberAsc(
-                        stationId, DockSlot.SlotStatus.OCCUPIED, Battery.BatteryStatus.AVAILABLE)
-                .orElseThrow(() -> new IllegalStateException("Không còn pin đầy khả dụng trong trạm."));
+                .findFirstByDock_Station_StationIdAndBattery_BatteryTypeAndBattery_BatteryStatusAndSlotStatusOrderByDock_DockNameAscSlotNumberAsc(
+                        stationId,
+                        batteryIn.getBatteryType(),
+                        Battery.BatteryStatus.AVAILABLE,
+                        DockSlot.SlotStatus.OCCUPIED
+                )
+                .orElseThrow(() -> new IllegalStateException("Không còn pin đầy đúng model trong trạm."));
 
         Battery batteryOut = dockOutSlot.getBattery();
         if (batteryOut == null)
@@ -242,6 +247,8 @@ public class SwapService {
 
         Swap.SwapStatus swapStatus = Swap.SwapStatus.SUCCESS;
         String description = "Swap hoàn tất.";
+
+        // ⚠️ Nếu trạm vẫn lỡ chọn nhầm model, fallback cảnh báo
         if (!batteryIn.getBatteryType().equals(batteryOut.getBatteryType())) {
             swapStatus = Swap.SwapStatus.WAITING_USER_RETRY;
             description = "Pin khác model - chờ người dùng xác nhận.";
