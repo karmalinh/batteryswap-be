@@ -10,7 +10,6 @@ import java.util.List;
 @Data
 @Entity
 @Table(name = "Invoice")
-// [ĐÃ XÓA] @Configurable
 public class Invoice {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "invoice_seq")
@@ -24,7 +23,7 @@ public class Invoice {
     private Long invoiceId;
 
     @Column(name = "userid")
-    private String userId; // Thêm userId
+    private String userId;
 
     @Column(name = "createddate")
     private LocalDateTime createdDate;
@@ -32,24 +31,16 @@ public class Invoice {
     @Column(name = "totalamount")
     private Double totalAmount;
 
-    // Giá mỗi lần đổi pin (ví dụ: 15,000 VNĐ)
     @Column(name = "priceperswap")
-    private Double pricePerSwap = 15000.0;
+    private Double pricePerSwap;
 
-    // Số lần đổi pin
     @Column(name = "numberofswaps")
     private Integer numberOfSwaps = 0;
 
-    // [ĐÃ XÓA] - Trường SystemPriceService đã bị xóa
-    // @Autowired
-    // @Transient
-    // private SystemPriceService systemPriceService;
-
-    // Trạng thái invoice
     public enum InvoiceStatus {
-        PENDING,    // Chờ xử lý
-        PAID,       // Đã thanh toán
-        PAYMENTFAILED, // Thanh toán thất bại
+        PENDING,
+        PAID,
+        PAYMENTFAILED,
     }
 
     @Enumerated(EnumType.STRING)
@@ -57,8 +48,23 @@ public class Invoice {
     private InvoiceStatus invoiceStatus = InvoiceStatus.PENDING;
 
     @OneToMany(mappedBy = "invoice")
-    @JsonIgnore // Thêm để tránh serialize toàn bộ booking objects
+    @JsonIgnore
     private List<Booking> bookings;
+
+    /**
+     * ✅ [THÊM MỚI] Liên kết @OneToMany đến Payment
+     * Một Invoice có thể có NHIỀU lần thanh toán (thất bại, thành công...)
+     */
+    @OneToMany(mappedBy = "invoice", fetch = FetchType.LAZY)
+    @JsonIgnore // Dùng JsonIgnore để tránh lỗi vòng lặp (loop)
+    private List<Payment> payments;
+
+    /**
+     * [MỚI] Dùng để liên kết invoice này với một GÓI CƯỚỚC.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "planidtoactivate")
+    private SubscriptionPlan planToActivate;
 
     // Getters and setters
     public Long getInvoiceId(){
@@ -69,7 +75,6 @@ public class Invoice {
         this.invoiceId = invoiceId;
     }
 
-    // Backward compatibility method - ẨN KHỎI JSON
     @JsonIgnore
     public Long getId(){
         return invoiceId;
@@ -120,6 +125,18 @@ public class Invoice {
         this.bookings = bookings;
     }
 
+    /**
+     * ✅ [THÊM MỚI] Getters and setters cho 'payments'
+     */
+    public List<Payment> getPayments() {
+        return payments;
+    }
+
+    public void setPayments(List<Payment> payments) {
+        this.payments = payments;
+    }
+
+    // (Getters/Setters cho các trường cũ)
     public String getUserId() {
         return userId;
     }
@@ -136,16 +153,14 @@ public class Invoice {
         this.invoiceStatus = invoiceStatus;
     }
 
-    // Method để cập nhật giá từ SystemPrice - sẽ được gọi từ service layer
-    public void updatePriceFromSystem(Double systemPrice) {
-        this.pricePerSwap = systemPrice != null ? systemPrice : 15000.0;
+    public SubscriptionPlan getPlanToActivate() {
+        return planToActivate;
     }
 
-    // [ĐÃ XÓA] - Hàm loadCurrentSystemPrice()
-    // public void loadCurrentSystemPrice() { ... }
+    public void setPlanToActivate(SubscriptionPlan planToActivate) {
+        this.planToActivate = planToActivate;
+    }
 
-    // Method để tính tổng tiền (VẪN GIỮ NGUYÊN)
-    // Hàm này sẽ được gọi từ Service (ví dụ: deleteBookings, linkBookings)
     public void calculateTotalAmount() {
         int totalBookings = 0;
         double totalSum = 0.0;

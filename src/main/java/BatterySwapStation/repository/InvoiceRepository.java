@@ -1,6 +1,7 @@
 package BatterySwapStation.repository;
 
 import BatterySwapStation.entity.Invoice;
+import BatterySwapStation.entity.SubscriptionPlan;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,5 +27,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     List<Invoice> findPendingInvoicesOlderThan(
             @Param("status") Invoice.InvoiceStatus status,
             @Param("timeoutDate") LocalDateTime timeoutDate
+    );
+
+    /**
+     * ✅ [THÊM MỚI] Dùng cho Scheduler (Phase 5)
+     * Kiểm tra xem User đã có Hóa đơn GIA HẠN (Pending)
+     * cho một Gói cước cụ thể hay chưa.
+     */
+    boolean existsByUserIdAndPlanToActivateAndInvoiceStatus(
+            String userId,
+            SubscriptionPlan planToActivate,
+            Invoice.InvoiceStatus invoiceStatus
     );
 }
