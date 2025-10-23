@@ -48,7 +48,7 @@ public class Swap {
     @Column(name = "CompletedTime")
     private LocalDateTime completedTime = LocalDateTime.now();
 
-    @Column(name = "Description", length = 255)
+    @Column(name = "Description", length = 1000)
     private String description;
 
 
