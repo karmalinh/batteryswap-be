@@ -53,10 +53,8 @@ public class Swap {
 
 
     public enum SwapStatus {
-        SUCCESS,              // Đổi thành công
-        WAITING_USER_RETRY,   // Khác model
-        FAULT,                // SoH thấp (đổi bình thường nhưng không đút pin vào dock)
-        CANCELLED,
-        CANCELLED_TEMP// Hủy
+        SUCCESS,
+        CANCELLED
+
     }
 }
