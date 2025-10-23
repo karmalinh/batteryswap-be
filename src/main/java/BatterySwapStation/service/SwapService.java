@@ -1,5 +1,6 @@
 package BatterySwapStation.service;
 
+import BatterySwapStation.dto.SwapListItemDTO;
 import BatterySwapStation.dto.SwapRequest;
 import BatterySwapStation.dto.SwapResponseDTO;
 import BatterySwapStation.entity.*;
@@ -280,5 +281,28 @@ public class SwapService {
         if (request.getStaffUserId() != null && !request.getStaffUserId().isBlank())
             return request.getStaffUserId();
         throw new IllegalStateException("Thiếu staffUserId (chưa đăng nhập staff hoặc không truyền staffUserId).");
+    }
+
+    @Transactional(readOnly = true)
+    public List<SwapListItemDTO> getSwapsByStation(Integer stationId) {
+        List<Swap> swaps = swapRepository.findAllByStationId(stationId);
+        return swaps.stream().map(this::toListItemDTO).toList();
+    }
+
+    private SwapListItemDTO toListItemDTO(Swap s) {
+        return SwapListItemDTO.builder()
+                .swapId(s.getSwapId())
+                .bookingId(s.getBooking().getBookingId())
+                .stationId(s.getBooking().getStation().getStationId())
+                .userId(s.getUserId())
+                .staffUserId(s.getStaffUserId())
+                .batteryOutId(s.getBatteryOutId())
+                .batteryInId(s.getBatteryInId())
+                .dockOutSlot(s.getDockOutSlot())
+                .dockInSlot(s.getDockInSlot())
+                .status(s.getStatus() != null ? s.getStatus().name() : null)
+                .completedTime(s.getCompletedTime())
+                .description(s.getDescription())
+                .build();
     }
 }
