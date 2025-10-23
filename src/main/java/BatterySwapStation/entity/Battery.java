@@ -97,7 +97,8 @@ public class Battery {
         AVAILABLE,
         IN_USE,
         CHARGING,
-        MAINTENANCE
+        MAINTENANCE,
+        WAITING_CHARGE
     }
 
     @Column(name = "CycleCount")
