@@ -99,5 +99,19 @@ public class VnPayUtils {
             default -> "Trạng thái không xác định";
         };
     }
+    public static String getRefundResponseMessage(String code) {
+        if (code == null) return "Không xác định mã phản hồi";
+        return switch (code) {
+            case "00" -> "Hoàn tiền thành công";
+            case "02" -> "Mã định danh kết nối không hợp lệ (TmnCode sai)";
+            case "03" -> "Dữ liệu gửi sang không đúng định dạng (sai format hoặc thiếu tham số)";
+            case "91" -> "Không tìm thấy giao dịch cần hoàn tiền";
+            case "94" -> "Yêu cầu trùng lặp, VNPay đang xử lý";
+            case "95" -> "Giao dịch gốc thất bại, không thể hoàn tiền";
+            case "97" -> "Checksum không hợp lệ";
+            case "99" -> "Lỗi khác hoặc lỗi hệ thống";
+            default -> "Lỗi không xác định, mã: " + code;
+        };
+    }
 
 }

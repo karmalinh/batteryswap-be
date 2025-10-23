@@ -1254,26 +1254,33 @@ public class BookingService {
         // 6. Trả về kết quả
         return Map.of("deleted", foundCount, "notFound", notFoundCount);
     }
+
     @Transactional
-    public Object cancelBooking(Long bookingId) {
+    public Map<String, Object> cancelBookingWithRefund(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking #" + bookingId));
 
-        // Nếu chưa thanh toán
-        if (booking.getInvoice() == null || booking.getInvoice().getInvoiceStatus() != Invoice.InvoiceStatus.PAID) {
+        if (booking.getInvoice() == null
+                || booking.getInvoice().getInvoiceStatus() != Invoice.InvoiceStatus.PAID) {
             booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
             bookingRepository.save(booking);
-            return Map.of("message", "Đã hủy booking (chưa thanh toán)");
+            return Map.of(
+                    "bookingId", bookingId,
+                    "status", "CANCELLED",
+                    "message", "Đã hủy booking (chưa thanh toán)"
+            );
         }
 
-        // Nếu đã thanh toán → hoàn tiền
+        // Đã thanh toán → gọi PaymentService để hoàn tiền
         Map<String, Object> refundResult = paymentService.refundBooking(String.valueOf(bookingId));
 
         booking.setBookingStatus(Booking.BookingStatus.REFUNDED);
         bookingRepository.save(booking);
 
         return Map.of(
-                "message", "Đã hủy và hoàn tiền booking thành công",
+                "bookingId", bookingId,
+                "status", "REFUNDED",
+                "message", "Đã hủy booking và hoàn tiền thành công",
                 "refundResult", refundResult
         );
     }

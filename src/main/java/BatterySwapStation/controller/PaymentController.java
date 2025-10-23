@@ -81,6 +81,7 @@ public class PaymentController {
                 .vnpBankCode(payment.getVnpBankCode())
                 .vnpPayDate(payment.getVnpPayDate())
                 .createdAt(payment.getCreatedAt())
+                .message(payment.getMessage())
                 .build());
     }
 
