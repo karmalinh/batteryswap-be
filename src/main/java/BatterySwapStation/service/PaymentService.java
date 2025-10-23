@@ -266,17 +266,17 @@ public class PaymentService {
         String vnp_TransactionNo = payment.getVnpTransactionNo(); // từ IPN gốc
         String vnp_TransactionDate = payment.getVnpPayDate();     // định dạng yyyyMMddHHmmss
 
-        if (vnp_TransactionNo == null || vnp_TransactionDate == null) {
-            throw new IllegalStateException("Thiếu thông tin giao dịch gốc (TransactionNo hoặc TransactionDate).");
+        if (vnp_TxnRef == null || vnp_TransactionNo == null || vnp_TransactionDate == null) {
+            throw new IllegalStateException("Thiếu thông tin giao dịch gốc (TxnRef / TransactionNo / TransactionDate).");
         }
 
         String vnp_CreateBy = "SystemRefundAPI";
         String vnp_CreateDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String vnp_IpAddr = "127.0.0.1";
-        String vnp_OrderInfo = URLEncoder.encode("Hoàn tiền cho booking #" + bookingId, StandardCharsets.UTF_8);
+        String vnp_OrderInfo = "Hoàn tiền cho booking #" + bookingId;
+        long vnp_Amount = Math.round(bookingAmount * 100);
 
-        long vnp_Amount = Math.round(bookingAmount * 100); // nhân 100, không có dấu chấm
-
+        // 🔐 Chuỗi hash chính xác theo tài liệu VNPay
         String data = String.join("|",
                 vnp_RequestId, vnp_Version, vnp_Command, vnp_TmnCode,
                 vnp_TransactionType, vnp_TxnRef, String.valueOf(vnp_Amount),
@@ -286,40 +286,35 @@ public class PaymentService {
 
         String vnp_SecureHash = VnPayUtils.hmacSHA512(props.getHashSecret(), data);
 
-        Map<String, String> form = new LinkedHashMap<>();
-        form.put("vnp_RequestId", vnp_RequestId);
-        form.put("vnp_Version", vnp_Version);
-        form.put("vnp_Command", vnp_Command);
-        form.put("vnp_TmnCode", vnp_TmnCode);
-        form.put("vnp_TransactionType", vnp_TransactionType);
-        form.put("vnp_TxnRef", vnp_TxnRef);
-        form.put("vnp_Amount", String.valueOf(vnp_Amount));
-        form.put("vnp_TransactionNo", vnp_TransactionNo);
-        form.put("vnp_TransactionDate", vnp_TransactionDate);
-        form.put("vnp_CreateBy", vnp_CreateBy);
-        form.put("vnp_CreateDate", vnp_CreateDate);
-        form.put("vnp_IpAddr", vnp_IpAddr);
-        form.put("vnp_OrderInfo", vnp_OrderInfo);
-        form.put("vnp_SecureHash", vnp_SecureHash);
+        // ✅ Body JSON (chỉ giữ field có giá trị khác null)
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("vnp_RequestId", vnp_RequestId);
+        body.put("vnp_Version", vnp_Version);
+        body.put("vnp_Command", vnp_Command);
+        body.put("vnp_TmnCode", vnp_TmnCode);
+        body.put("vnp_TransactionType", vnp_TransactionType);
+        body.put("vnp_TxnRef", vnp_TxnRef);
+        body.put("vnp_Amount", vnp_Amount);
+        body.put("vnp_TransactionNo", vnp_TransactionNo);
+        body.put("vnp_TransactionDate", vnp_TransactionDate);
+        body.put("vnp_CreateBy", vnp_CreateBy);
+        body.put("vnp_CreateDate", vnp_CreateDate);
+        body.put("vnp_IpAddr", vnp_IpAddr);
+        body.put("vnp_OrderInfo", vnp_OrderInfo);
+        body.put("vnp_SecureHash", vnp_SecureHash);
 
-        log.info("🔹 Refund request: {}", form);
+        // 🚨 Bỏ tất cả key null để tránh lỗi hashCode() null
+        body.entrySet().removeIf(e -> e.getValue() == null);
 
-        // ========== CALL API ==========
+        log.info("🔹 Refund request (JSON): {}", body);
+
+        // ========== CALL VNPay API (POST JSON) ==========
         RestTemplate rest = new RestTemplate();
-
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-
-        HttpEntity<Map<String, String>> entity = new HttpEntity<>(form, headers);
-
-        ResponseEntity<Map> response = rest.postForEntity(
-                props.getRefundUrl(),
-                entity,
-                Map.class
-        );
-
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        ResponseEntity<Map> response = rest.postForEntity(props.getRefundUrl(), entity, Map.class);
 
         Map<String, Object> result = response.getBody();
         if (result == null) {
@@ -337,12 +332,11 @@ public class PaymentService {
 
         // ========== HANDLE RESULT ==========
         if ("00".equals(responseCode)) {
-            // ✅ Cập nhật trạng thái payment thay vì booking
+            // ✅ Cập nhật payment thay vì booking
             payment.setPaymentStatus(Payment.PaymentStatus.REFUNDED);
-            payment.setMessage("Đã hoàn tiền cho booking #" + bookingId);
+            payment.setMessage("Đã hoàn tiền VNPay cho booking #" + bookingId);
             paymentRepository.save(payment);
 
-            // Booking chỉ đánh dấu là hủy
             booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
             booking.setCancellationReason("Đã hoàn tiền VNPay.");
             bookingRepository.save(booking);
@@ -351,7 +345,6 @@ public class PaymentService {
         } else {
             throw new IllegalStateException("VNPay refund thất bại (" + responseCode + "): " + refundMsg);
         }
-
 
         // ========== TRẢ KẾT QUẢ CHO FE ==========
         Map<String, Object> responseData = new HashMap<>();
@@ -364,7 +357,5 @@ public class PaymentService {
 
         return responseData;
     }
-
-
 
 }
