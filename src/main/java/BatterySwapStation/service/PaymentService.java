@@ -9,6 +9,9 @@ import BatterySwapStation.utils.VnPayUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -303,11 +306,20 @@ public class PaymentService {
 
         // ========== CALL API ==========
         RestTemplate rest = new RestTemplate();
+
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(form, headers);
+
         ResponseEntity<Map> response = rest.postForEntity(
                 props.getRefundUrl(),
-                form,
+                entity,
                 Map.class
         );
+
 
         Map<String, Object> result = response.getBody();
         if (result == null) {
