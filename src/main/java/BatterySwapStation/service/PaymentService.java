@@ -325,12 +325,21 @@ public class PaymentService {
 
         // ========== HANDLE RESULT ==========
         if ("00".equals(responseCode)) {
-            booking.setBookingStatus(Booking.BookingStatus.REFUNDED);
+            // ✅ Cập nhật trạng thái payment thay vì booking
+            payment.setPaymentStatus(Payment.PaymentStatus.REFUNDED);
+            payment.setMessage("Đã hoàn tiền cho booking #" + bookingId);
+            paymentRepository.save(payment);
+
+            // Booking chỉ đánh dấu là hủy
+            booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+            booking.setCancellationReason("Đã hoàn tiền VNPay.");
             bookingRepository.save(booking);
-            log.info("✅ Hoàn tiền thành công cho booking #{}: {}", bookingId, refundMsg);
+
+            log.info("✅ Hoàn tiền thành công cho booking #{} - Payment REFUNDED: {}", bookingId, refundMsg);
         } else {
             throw new IllegalStateException("VNPay refund thất bại (" + responseCode + "): " + refundMsg);
         }
+
 
         // ========== TRẢ KẾT QUẢ CHO FE ==========
         Map<String, Object> responseData = new HashMap<>();

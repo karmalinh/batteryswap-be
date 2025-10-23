@@ -1260,9 +1260,11 @@ public class BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking #" + bookingId));
 
+        // 🔸 Nếu chưa thanh toán thì chỉ hủy booking
         if (booking.getInvoice() == null
                 || booking.getInvoice().getInvoiceStatus() != Invoice.InvoiceStatus.PAID) {
             booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+            booking.setCancellationReason("Hủy booking chưa thanh toán.");
             bookingRepository.save(booking);
             return Map.of(
                     "bookingId", bookingId,
@@ -1271,19 +1273,34 @@ public class BookingService {
             );
         }
 
-        // Đã thanh toán → gọi PaymentService để hoàn tiền
+        // 🔹 Nếu hóa đơn đã thanh toán → gọi refund VNPay
         Map<String, Object> refundResult = paymentService.refundBooking(String.valueOf(bookingId));
 
-        booking.setBookingStatus(Booking.BookingStatus.REFUNDED);
+        // ✅ Tìm payment tương ứng với booking để set REFUNDED
+        Invoice invoice = booking.getInvoice();
+        if (invoice != null && invoice.getPayments() != null) {
+            invoice.getPayments().stream()
+                    .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS)
+                    .reduce((first, second) -> second)
+                    .ifPresent(p -> {
+                        p.setPaymentStatus(Payment.PaymentStatus.REFUNDED);
+                        p.setMessage("Đã hoàn tiền cho booking #" + bookingId);
+                    });
+        }
+
+        // ✅ Booking chỉ set CANCELLED
+        booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+        booking.setCancellationReason("Đã hủy và hoàn tiền VNPay.");
         bookingRepository.save(booking);
 
         return Map.of(
                 "bookingId", bookingId,
-                "status", "REFUNDED",
+                "status", "CANCELLED",
                 "message", "Đã hủy booking và hoàn tiền thành công",
                 "refundResult", refundResult
         );
     }
+
 
 
 
