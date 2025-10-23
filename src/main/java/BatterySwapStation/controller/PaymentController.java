@@ -108,4 +108,11 @@ public class PaymentController {
 
         response.sendRedirect(redirectUrl);
     }
+    @PostMapping("/refund-booking/{bookingId}")
+    public ResponseEntity<Map<String, Object>> refundBooking(
+            @PathVariable String bookingId) {
+
+        Map<String, Object> result = paymentService.refundBooking(bookingId);
+        return ResponseEntity.ok(result);
+    }
 }

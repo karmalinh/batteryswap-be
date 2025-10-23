@@ -39,7 +39,7 @@ public class BookingService {
     private final InvoiceRepository invoiceRepository;
     private final ObjectMapper objectMapper;
     private final UserSubscriptionRepository userSubscriptionRepository;
-
+    private final PaymentService paymentService;
 
 
     /**
@@ -1253,6 +1253,29 @@ public class BookingService {
 
         // 6. Trả về kết quả
         return Map.of("deleted", foundCount, "notFound", notFoundCount);
+    }
+    @Transactional
+    public Object cancelBooking(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking #" + bookingId));
+
+        // Nếu chưa thanh toán
+        if (booking.getInvoice() == null || booking.getInvoice().getInvoiceStatus() != Invoice.InvoiceStatus.PAID) {
+            booking.setBookingStatus(Booking.BookingStatus.CANCELLED);
+            bookingRepository.save(booking);
+            return Map.of("message", "Đã hủy booking (chưa thanh toán)");
+        }
+
+        // Nếu đã thanh toán → hoàn tiền
+        Map<String, Object> refundResult = paymentService.refundBooking(String.valueOf(bookingId));
+
+        booking.setBookingStatus(Booking.BookingStatus.REFUNDED);
+        bookingRepository.save(booking);
+
+        return Map.of(
+                "message", "Đã hủy và hoàn tiền booking thành công",
+                "refundResult", refundResult
+        );
     }
 
 
