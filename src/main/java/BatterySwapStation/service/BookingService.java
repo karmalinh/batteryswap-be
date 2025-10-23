@@ -1083,7 +1083,7 @@ public class BookingService {
 
                 // Chuyển đổi LocalDateTime (từ Payment) sang LocalDate (mà DTO yêu cầu)
                 if (paymentToShow.getCreatedAt() != null) {
-                    paymentInfoDTO.setPaymentDate(paymentToShow.getCreatedAt().toLocalDate());
+                    paymentInfoDTO.setPaymentDate(paymentToShow.getCreatedAt());
                 }
 
                 response.setPayment(paymentInfoDTO); // ✅ Gán DTO, lỗi sẽ hết
