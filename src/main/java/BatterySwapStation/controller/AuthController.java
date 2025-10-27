@@ -3,6 +3,8 @@ package BatterySwapStation.controller;
 import BatterySwapStation.dto.*;
 
 import BatterySwapStation.entity.*;
+import BatterySwapStation.repository.StaffAssignRepository;
+import BatterySwapStation.repository.UserSubscriptionRepository;
 import BatterySwapStation.service.*;
 import BatterySwapStation.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +17,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -30,8 +34,15 @@ public class AuthController {
     private final EmailService emailService;
     private final JwtService jwtService;
     private final GoogleService googleService;
+    private final StaffAssignRepository staffAssignRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
+    private final ForgotPasswordService forgotPasswordService;
+
+
 
     private static final String FRONTEND_VERIFY_URL = "http://localhost:5173/verify-email";
+    //private static final String RESET_URL = "http://localhost:5173/reset-password?token=";
+
 
 
     @PostMapping("/register")
@@ -80,14 +91,42 @@ public class AuthController {
             return ResponseEntity.status(401).body("Không có quyền truy cập");
         }
 
-        return ResponseEntity.ok(Map.of(
-                "userId", user.getUserId(),
-                "email", user.getEmail(),
-                "fullName", user.getFullName(),
-                "phone", user.getPhone(),
-                "role", user.getRole().getRoleName()
-        ));
+        Integer assignedStationId = null;
+        Long activeSubscriptionId = null;
+
+        // 🔹 Nếu là Staff
+        if (user.getRole().getRoleId() == 2) {
+            StaffAssign assign = staffAssignRepository.findFirstByUser_UserIdAndIsActiveTrue(user.getUserId());
+            if (assign != null) assignedStationId = assign.getStationId();
+        }
+
+        // 🔹 Nếu là Driver
+        if (user.getRole().getRoleId() == 1) {
+            UserSubscription sub = userSubscriptionRepository
+                    .findFirstByUser_UserIdAndStatusAndEndDateAfter(
+                            user.getUserId(),
+                            UserSubscription.SubscriptionStatus.ACTIVE,
+                            LocalDateTime.now()
+                    );
+            if (sub != null && sub.getPlan() != null) {
+                activeSubscriptionId = sub.getPlan().getId();
+            }
+        }
+
+        // ✅ Sử dụng HashMap để cho phép null value (tránh NPE)
+        Map<String, Object> result = new HashMap<>();
+        result.put("userId", user.getUserId());
+        result.put("email", user.getEmail());
+        result.put("fullName", user.getFullName());
+        result.put("phone", user.getPhone());
+        result.put("role", user.getRole().getRoleName());
+        result.put("assignedStationId", assignedStationId);
+        result.put("activeSubscriptionId", activeSubscriptionId); // 💰 Cho phép null
+
+        return ResponseEntity.ok(result);
     }
+
+
 
 
     @GetMapping("/verify-email")
@@ -175,6 +214,33 @@ public class AuthController {
                     ));
         }
     }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest req) {
+        String resetLink = forgotPasswordService.sendResetPasswordLink(req.getEmail());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "message", "Yêu cầu đặt lại mật khẩu đã được gửi! Vui lòng kiểm tra email.",
+                "email", req.getEmail(),
+                "resetLink", resetLink
+        ));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
+        forgotPasswordService.resetPassword(
+                req.getToken(),
+                req.getNewPassword(),
+                req.getConfirmPassword()
+        );
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Mật khẩu của bạn đã được cập nhật thành công."
+        ));
+    }
+
+
 
 
 }

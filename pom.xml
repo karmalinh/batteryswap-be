@@ -53,6 +53,12 @@
         </dependency>
 
 
+        <!-- Apache POI for Excel export -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
 
         <!-- 🔑 Environment .env -->
         <dependency>
@@ -99,6 +105,11 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.11.5</version>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.11.0</version>
         </dependency>
 
         <!-- 📘 Swagger / OpenAPI -->
