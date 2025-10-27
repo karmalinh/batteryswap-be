@@ -1,5 +1,7 @@
 package BatterySwapStation.repository;
 
+import BatterySwapStation.entity.Invoice;
+import BatterySwapStation.entity.SubscriptionPlan;
 import BatterySwapStation.entity.UserSubscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,13 +16,13 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     /**
      * ✅ [SỬA LỖI LOGIC]
      * Sửa câu query để tìm gói cước ACTIVE
-     * (Một gói ACTIVE là khi: status=ACTIVE VÀ now Ở GIỮA startDate và endDate)
+     * (Một gói ACTIVE là khi: status=ACTIVE VÀ 'now' Ở GIỮA 'startDate' và 'endDate')
      */
     @Query("SELECT us FROM UserSubscription us " +
             "WHERE us.user.userId = :userId " +
             "AND us.status = :status " +
-            "AND us.startDate <= :now " +  // <-- [THÊM DÒNG NÀY]
-            "AND us.endDate >= :now")      // <-- [SỬA DÒNG NÀY] (dùng >=)
+            "AND us.startDate <= :now " +  // <-- [SỬA DÒNG NÀY]
+            "AND us.endDate >= :now")      // <-- [SỬA DÒNG NÀY]
     Optional<UserSubscription> findActiveSubscriptionForUser(
             @Param("userId") String userId,
             @Param("status") UserSubscription.SubscriptionStatus status,
@@ -28,8 +30,7 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     );
 
     /**
-     * [MỚI] Tìm các gói ACTIVE, có BẬT autoRenew,
-     * và sẽ hết hạn trong vòng 'daysRemaining' ngày tới.
+     * Tìm các gói ACTIVE, có BẬT autoRenew...
      * (Giữ nguyên)
      */
     @Query("SELECT us FROM UserSubscription us " +
@@ -42,12 +43,15 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     );
 
     /**
-     * [MỚI] Tìm TẤT CẢ các gói cước
+     * Tìm TẤT CẢ các gói cước
      * (Giữ nguyên)
      */
     List<UserSubscription> findByUser_UserIdOrderByStartDateDesc(String userId);
 
-    // (Hàm này có thể bị trùng lặp logic với hàm @Query, nhưng cứ giữ lại)
     UserSubscription findFirstByUser_UserIdAndStatusAndEndDateAfter(
             String userId, UserSubscription.SubscriptionStatus status, LocalDateTime now);
+
+    // (Thêm hàm này nếu SubscriptionService của bạn cần nó)
+    boolean existsByUserIdAndPlanToActivateAndInvoiceStatus(
+            String userId, SubscriptionPlan plan, Invoice.InvoiceStatus status);
 }

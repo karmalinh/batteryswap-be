@@ -9,6 +9,7 @@ import BatterySwapStation.repository.InspectionRepository;
 import BatterySwapStation.service.InspectionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -81,5 +82,36 @@ public class InspectionController {
 
         List<DisputeTicket> tickets = disputeTicketRepository.findByStatusIn(statuses);
         return ResponseEntity.ok(tickets);
+    }
+
+    // ✅ [THÊM MỚI]
+    @GetMapping("/disputes/by-station")
+    @Operation(summary = "Staff lấy Dispute (Tranh chấp) theo Trạm",
+            description = "Lấy tất cả các ticket tranh chấp (bất kể trạng thái) của một trạm cụ thể.")
+    public ResponseEntity<?> getDisputesByStation(
+            @RequestParam @NotNull Integer stationId
+    ) {
+        try {
+            List<DisputeTicket> tickets = disputeTicketRepository.findByStation_StationIdOrderByCreatedAtDesc(stationId);
+
+            if (tickets.isEmpty()) {
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "message", "Không tìm thấy ticket nào cho trạm " + stationId,
+                        "tickets", tickets
+                ));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Lấy danh sách ticket cho trạm " + stationId + " thành công.",
+                    "tickets", tickets
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
     }
 }
