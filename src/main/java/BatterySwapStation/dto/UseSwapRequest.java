@@ -13,4 +13,5 @@ public class UseSwapRequest {
     // ID của hóa đơn (Invoice) 0 ĐỒNG
     @NotNull(message = "InvoiceId là bắt buộc")
     private Long invoiceId;
+
 }
