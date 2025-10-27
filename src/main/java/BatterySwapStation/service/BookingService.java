@@ -10,10 +10,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import BatterySwapStation.repository.InvoiceRepository;
 import BatterySwapStation.repository.UserSubscriptionRepository;
-import BatterySwapStation.entity.UserSubscription; // ✅ THÊM IMPORT NÀY
-import BatterySwapStation.entity.SubscriptionPlan; // ✅ THÊM IMPORT NÀY
+import BatterySwapStation.entity.UserSubscription;
+import BatterySwapStation.entity.SubscriptionPlan;
 import BatterySwapStation.entity.Invoice;
 import BatterySwapStation.entity.User;
+import org.springframework.context.event.EventListener;
+import BatterySwapStation.service.InvoicePaidEvent;
 
 import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDate;
@@ -1315,5 +1317,33 @@ public class BookingService {
         }
     }
 
+    /**
+     * [SỬA LỖI VÒNG LẶP]
+     * Hàm này LẮNG NGHE sự kiện 'InvoicePaidEvent' (được bắn ra từ SubscriptionService HOẶC PaymentService).
+     * Khi nó nghe thấy, nó sẽ tự động kích hoạt Booking.
+     */
+    @EventListener
+    public void handleInvoicePaidEvent(InvoicePaidEvent event) {
+            Invoice invoice = event.getInvoice();
+            log.info("BookingService đã nhận được InvoicePaidEvent cho Invoice #{}", invoice.getInvoiceId());
 
+        // Tìm các booking liên quan đến hóa đơn này
+        List<Booking> bookings = bookingRepository.findByInvoice(invoice);
+        if (bookings.isEmpty()) {
+            // (Nếu đây là Invoice Gói tháng, nó sẽ không có booking nào, đây là việc bình thường)
+            log.info("Sự kiện Invoice PAID, không tìm thấy Booking nào liên kết (có thể là HĐ Gói tháng). Bỏ qua.");
+            return;
+        }
+
+        for (Booking booking : bookings) {
+            // Chỉ kích hoạt các booking đang chờ thanh toán
+            if (booking.getBookingStatus() == Booking.BookingStatus.PENDINGPAYMENT) {
+                log.info("Kích hoạt Booking #{} (từ sự kiện) sang PENDINGSWAPPING", booking.getBookingId());
+
+                // Gọi hàm confirmPayment (Dòng 307 trong file này)
+                confirmPayment(booking.getBookingId());
+            }
+        }
+    }
 }
+

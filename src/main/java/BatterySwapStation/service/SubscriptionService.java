@@ -4,7 +4,8 @@ import BatterySwapStation.dto.SubscriptionRequest;
 import BatterySwapStation.dto.UseSwapRequest;
 import BatterySwapStation.entity.*;
 import BatterySwapStation.repository.*;
-import lombok.RequiredArgsConstructor; // ✅ [THÊM MỚI]
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,7 @@ public class SubscriptionService {
     private final SystemPriceService systemPriceService;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final BookingRepository bookingRepository;
-    private final BookingService bookingService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * ✅ [SỬA 2] Cập nhật hàm này để dùng DTO (SubscribeRequest)
@@ -363,30 +364,20 @@ public class SubscriptionService {
 
         // --- 4. THỰC THI (EXECUTION) ---
 
-        // a. Trừ 1 lượt: Tăng 'usedSwaps' (Logic ĐÚNG nằm ở đây)
-        activeSub.setUsedSwaps(used + 1);
+        // a. Trừ 1 lượt: Tăng 'usedSwaps' (Giữ nguyên)
+        activeSub.setUsedSwaps(activeSub.getUsedSwaps() + 1);
         UserSubscription updatedSub = userSubscriptionRepository.save(activeSub);
-        log.info("User {} đã dùng 1 lượt. (Còn lại: {}/{}).", request.getUserId(), (used + 1), limit);
+        log.info("User {} đã dùng 1 lượt. (Còn lại: {}/{}).", request.getUserId(), (activeSub.getUsedSwaps()), activeSub.getPlan().getSwapLimit());
 
-        // b. Chuyển Invoice sang PAID
+        // b. Chuyển Invoice sang PAID (Giữ nguyên)
         invoice.setInvoiceStatus(Invoice.InvoiceStatus.PAID);
-        invoiceRepository.save(invoice);
-        log.info("Invoice #{} đã được chuyển sang PAID.", invoice.getInvoiceId());
+        Invoice savedInvoice = invoiceRepository.save(invoice); // <-- Lấy Hóa đơn đã lưu
+        log.info("Invoice #{} đã được chuyển sang PAID.", savedInvoice.getInvoiceId());
 
-        // c. Kích hoạt Booking sang PENDINGSWAPPING
-        // ✅ [SỬA LỖI 2]
-        List<Booking> bookings = bookingRepository.findByInvoice(invoice);
-        if (bookings.isEmpty()) {
-            log.warn("Invoice #{} đã được thanh toán, nhưng không tìm thấy Booking nào liên kết với nó.", invoice.getInvoiceId());
-        } else {
-            for (Booking booking : bookings) {
-                // Gọi hàm 'confirmPayment' (từ BookingService)
-                // để chuyển trạng thái sang PENDINGSWAPPING một cách an toàn
-                log.info("Gọi BookingService.confirmPayment cho Booking #{}", booking.getBookingId());
-                bookingService.confirmPayment(booking.getBookingId());
-            }
-            log.info("Đã kích hoạt {} booking (của Invoice #{}) sang PENDINGSWAPPING.", bookings.size(), invoice.getInvoiceId());
-        }
+        // c. Bắn (Publish) Sự kiện
+        log.info("Phát sự kiện InvoicePaidEvent cho Invoice #{}", savedInvoice.getInvoiceId());
+        eventPublisher.publishEvent(new InvoicePaidEvent(this, savedInvoice));
+        // --- (Hết code mới) ---
 
         return updatedSub; // Trả về thông tin gói cước đã cập nhật
     }
