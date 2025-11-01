@@ -7,8 +7,8 @@ import jakarta.validation.constraints.NotNull;
 @Data
 public class TicketRequest {
 
-    @NotNull(message = "inspectionId là bắt buộc")
-    private Long inspectionId;
+    @NotNull(message = "bookingId là bắt buộc")
+    private Long bookingId;
 
     @NotBlank(message = "staffId là bắt buộc")
     private String staffId;
