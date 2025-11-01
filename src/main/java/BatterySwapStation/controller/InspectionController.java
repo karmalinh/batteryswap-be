@@ -1,10 +1,6 @@
 package BatterySwapStation.controller;
 
-import BatterySwapStation.dto.InspectionRequest;
-import BatterySwapStation.dto.InspectionResponse;
-import BatterySwapStation.dto.InspectionUpdateRequest;
-import BatterySwapStation.dto.TicketResponse;
-import BatterySwapStation.dto.TicketUpdateRequest;
+import BatterySwapStation.dto.*;
 import BatterySwapStation.entity.BatteryInspection;
 import BatterySwapStation.entity.DisputeTicket;
 import BatterySwapStation.service.InspectionService; // Service đã được gộp
@@ -58,33 +54,38 @@ public class InspectionController {
     @Operation(summary = "Tạo Dispute Ticket liên kết với Inspection",
             description = "Staff tạo Ticket tranh chấp sau khi xác nhận pin bị hỏng (liên kết với Inspection đã có).")
     public ResponseEntity<Map<String, Object>> createDisputeTicket(
-            @RequestParam Long inspectionId,
-            @RequestParam String staffId,
-            @RequestParam String title,
-            @RequestParam String description,
-            @RequestParam String disputeReason,
-            @RequestParam Integer stationId
+            @RequestBody TicketRequest request
     ) {
         try {
             DisputeTicket ticket = inspectionService.createDisputeTicket(
-                    inspectionId, staffId, title, description, disputeReason, stationId
+                    request.getInspectionId(),
+                    request.getStaffId(),
+                    request.getTitle(),
+                    request.getDescription(),
+                    request.getDisputeReason(),
+                    request.getStationId() // ✅ Lấy Station ID từ Request
             );
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Tạo Dispute Ticket thành công.",
                     "ticketId", ticket.getId(),
-                    "inspectionId", inspectionId,
-                    "stationId", stationId
+                    "inspectionId", request.getInspectionId(),
+                    "stationId", request.getStationId()
             ));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of(
                     "success", false,
                     "error", e.getMessage()
             ));
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "error", e.getMessage()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Lỗi không xác định khi tạo ticket: " + e.getMessage()
             ));
         }
     }

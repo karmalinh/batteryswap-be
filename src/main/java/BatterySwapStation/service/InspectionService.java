@@ -69,6 +69,7 @@ public class InspectionService {
                 .inspectionTime(LocalDateTime.now())
                 .stateOfHealth(request.getStateOfHealth())
                 .physicalNotes(request.getPhysicalNotes())
+                .status(BatteryInspection.InspectionStatus.PASS)
                 .build();
 
         BatteryInspection savedInspection = inspectionRepository.save(inspection);
@@ -79,17 +80,19 @@ public class InspectionService {
 // HÀM MỚI: TẠO DISPUTE TICKET (POST /tickets)
 // ----------------------------------------------------------------------
     @Transactional
-    public DisputeTicket createDisputeTicket(Long inspectionId, String staffId, String title, String description, String disputeReason, Integer stationId) {
+    public DisputeTicket createDisputeTicket(Long inspectionId,
+                                             String staffId,
+                                             String title,
+                                             String description,
+                                             String disputeReason,
+                                             Integer stationId
+    ) {
 
         // 1. Lấy Inspection (Khóa chính)
         BatteryInspection inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy Inspection ID: " + inspectionId));
 
-        // 2. Kiểm tra xem Ticket đã tồn tại cho Inspection này chưa (Tùy chọn)
-        // List<DisputeTicket> existingTickets = disputeTicketRepository.findByInspectionId(inspectionId);
-        // if (!existingTickets.isEmpty()) { throw new IllegalStateException("Ticket đã tồn tại cho Inspection này."); }
-
-        // 3. Lấy Staff (người đang tạo Ticket)
+        // 2. Lấy Staff (người đang tạo Ticket)
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy Staff (User) ID: " + staffId));
 
@@ -151,6 +154,17 @@ public class InspectionService {
         }
         if (request.getDamaged() != null) {
             inspection.setDamaged(request.getDamaged());
+        }
+        if (request.getNewStatus() != null) {
+            try {
+                // Chuyển đổi chuỗi thành Enum
+                BatteryInspection.InspectionStatus newStatus =
+                        BatteryInspection.InspectionStatus.valueOf(request.getNewStatus().toUpperCase());
+
+                inspection.setStatus(newStatus);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Trạng thái Inspection không hợp lệ: " + request.getNewStatus() + ". Phải là PASS hoặc IN_MAINTENANCE.");
+            }
         }
 
         BatteryInspection updatedInspection = inspectionRepository.save(inspection);
@@ -244,6 +258,10 @@ public class InspectionService {
 
         if (inspection.getBattery() != null) {
             ins.setBatteryId(inspection.getBattery().getBatteryId());
+        }
+
+        if (inspection.getStatus() != null) {
+            ins.setStatus(inspection.getStatus().name());
         }
 
         return ins;
