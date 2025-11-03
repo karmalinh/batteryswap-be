@@ -241,8 +241,16 @@ public class TicketService { // ✅ Đổi tên lớp
 
                     ticket.setStatus(DisputeTicket.TicketStatus.RESOLVED);
                     ticket.setResolvedAt(LocalDateTime.now());
+                    ticket.setResolutionMethod(DisputeTicket.ResolutionMethod.PENALTY.name());
+                    ticket.setPenaltyLevel(req.getPenaltyLevel());
                     ticket.setResolutionDescription("Thanh toán ví thành công");
+                    disputeTicketRepository.save(ticket);
+
+                    TicketResponse res = convertToTicketResponse(ticket);
+                    res.setInvoiceId(invoice.getInvoiceId());
+                    return res;
                 }
+
 
                 case VNPAY -> {
                     // FE lấy invoiceId để redirect
@@ -323,14 +331,36 @@ public class TicketService { // ✅ Đổi tên lớp
         res.setResolutionMethod(ticket.getResolutionMethod());
         res.setResolutionDescription(ticket.getResolutionDescription());
         res.setCreatedAt(ticket.getCreatedAt());
+
         if (ticket.getReason() != null) {
             res.setReason(ticket.getReason().name());
         }
+
         if (ticket.getCreatedByStaff() != null) {
             res.setCreatedByStaffName(ticket.getCreatedByStaff().getFullName());
         }
+
+        // ✅ Invoice ID
+        if (ticket.getPenaltyInvoice() != null) {
+            res.setInvoiceId(ticket.getPenaltyInvoice().getInvoiceId());
+        }
+
+        // ✅ Penalty Level
+        if (ticket.getPenaltyLevel() != null) {
+            res.setPenaltyLevel(ticket.getPenaltyLevel().name());
+        }
+
+        // ✅ Payment Channel (fetch latest payment of invoice)
+        if (ticket.getPenaltyInvoice() != null) {
+            paymentRepository.findTopByInvoiceOrderByCreatedAtDesc(ticket.getPenaltyInvoice())
+                    .ifPresent(p -> res.setPaymentChannel(
+                            p.getPaymentChannel() != null ? p.getPaymentChannel().name() : null
+                    ));
+        }
+
         return res;
     }
+
 
     @Transactional
     public TicketResponse confirmCashReceived(Long ticketId, String staffId) {
