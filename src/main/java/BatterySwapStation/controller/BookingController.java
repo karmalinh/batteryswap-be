@@ -82,7 +82,6 @@ public class BookingController {
         }
     }
 
-
     @PutMapping("/cancel")
     @Operation(summary = "Hủy booking", description = "Hủy một booking đã tạo")
     public ResponseEntity<ApiResponseDto> cancelBooking(@RequestBody CancelBookingRequest request) {
