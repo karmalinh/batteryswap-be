@@ -80,7 +80,6 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     );
 
 
-
     @Query("""
     SELECT DATE(i.createdDate) AS date,
            SUM(i.totalAmount) AS totalRevenue
@@ -98,4 +97,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     );
 
 
+    @Query("SELECT i FROM Invoice i WHERE i.userId = :userId " +
+            "AND i.invoiceType = 'SUBSCRIPTION' " +
+            "AND i.invoiceStatus = 'PAID' " +
+            "ORDER BY i.createdDate DESC")
+    List<Invoice> findLatestPaidSubscriptionInvoices(@Param("userId") String userId);
 }
