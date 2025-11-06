@@ -317,6 +317,7 @@ public class TicketService {
         log.info("💳 [TICKET:{}] Penalty VNPAY | Level={} | Amount={}",
                 ticket.getId(), req.getPenaltyLevel(), amount);
 
+        ticket.setPenaltyInvoice(invoice);
         ticket.setStatus(DisputeTicket.TicketStatus.IN_PROGRESS);
         ticket.setPenaltyLevel(req.getPenaltyLevel());
         ticket.setResolutionMethod(DisputeTicket.ResolutionMethod.PENALTY.name());
