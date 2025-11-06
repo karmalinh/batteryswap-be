@@ -256,6 +256,7 @@ public class PaymentService {
 
                             // Gửi realtime đến staff tại trạm
                             Integer stationId = ticket.getStation().getStationId();
+                            log.info("📢 [EVENT][TICKET:{}] Gửi event notifyPenaltyPaid tới Station #{}", ticket.getId(), stationId);
                             ticketSocketController.notifyPenaltyPaid(ticket.getId(), stationId);
                         }
                     }

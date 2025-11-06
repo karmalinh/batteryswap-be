@@ -235,7 +235,7 @@ public class TicketService { // ✅ Đổi tên lớp
         ticket.setResolvedAt(LocalDateTime.now());
         ticket.setResolutionDescription("Thanh toán tiền mặt thành công bởi staff " + staffId);
         disputeTicketRepository.save(ticket);
-
+        log.info("📢 [EVENT][TICKET:{}] Staff {} xác nhận thanh toán tiền mặt → Gửi event cập nhật Ticket RESOLVED", ticket.getId(), staffId);
         return convertToTicketResponse(ticket);
     }
 
@@ -340,6 +340,7 @@ public class TicketService { // ✅ Đổi tên lớp
         ticket.setResolutionDescription("Thanh toán ví thành công");
         disputeTicketRepository.save(ticket);
 
+        log.info("📢 [EVENT][TICKET:{}] Thanh toán ví thành công → Gửi event cập nhật Ticket RESOLVED", ticket.getId());
         TicketResponse res = convertToTicketResponse(ticket);
         res.setInvoiceId(invoice.getInvoiceId());
         return res;
