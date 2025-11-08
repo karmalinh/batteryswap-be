@@ -87,9 +87,9 @@ public class VehicleImportService {
     private VehicleImportDTO parseCSVLine(String line, int rowNumber) {
         String[] columns = line.split(",", -1);
 
-        if (columns.length < 8) {
+        if (columns.length < 11) {
             return VehicleImportDTO.builder()
-                    .errors(List.of("Thiếu cột dữ liệu (cần 8 cột)"))
+                    .errors(List.of("Thiếu cột dữ liệu (cần 11 cột)"))
                     .build();
         }
 
@@ -97,14 +97,14 @@ public class VehicleImportService {
                 .VIN(columns[0].trim())
                 .vehicleType(columns[1].trim())
                 .batteryType(columns[2].trim())
-                .ownerName(columns[3].trim())
-                .licensePlate(columns[4].trim())
-                .color(columns[5].trim())
-                .batteryCount(parseSafeInteger(columns[6].trim()))
-                .manufactureDate(columns[7].trim())
-                .purchaseDate(columns.length > 8 ? columns[8].trim() : "")
-                .userId(null) // Không cho phép nhập userId từ CSV
-                .isActive(false) // Mặc định false - xe chưa được kích hoạt
+                .userId(columns[3].trim())
+                .ownerName(columns[4].trim())
+                .licensePlate(columns[5].trim())
+                .color(columns[6].trim())
+                .batteryCount(parseSafeInteger(columns[7].trim()))
+                .manufactureDate(columns[8].trim())
+                .purchaseDate(columns[9].trim())
+                .isActive(parseSafeBoolean(columns[10].trim()))
                 .build();
 
         validateDTO(dto);

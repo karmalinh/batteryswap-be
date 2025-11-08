@@ -69,4 +69,12 @@ public class VehicleController {
         vehicleService.deactivateVehicle(vehicleId, user.getUserId());
         return ResponseEntity.ok(new ApiResponseDto(true, "Hủy kích hoạt phương tiện thành công!"));
     }
+
+    @GetMapping("/unassigned")
+    @Operation(summary = "Lấy danh sách phương tiện chưa có chủ")
+    public ResponseEntity<List<Vehicle>> getUnassignedVehicles() {
+        List<Vehicle> vehicles = vehicleService.getUnassignedVehicles();
+        return ResponseEntity.ok(vehicles);
+    }
+
 }
