@@ -72,4 +72,14 @@ public interface BatteryRepository extends JpaRepository<Battery, String> {
 """)
     List<Object[]> countBatteriesForAllStations();
 
+    @Query("""
+    SELECT b.batteryType
+    FROM Battery b
+    WHERE b.stationId = :stationId
+    GROUP BY b.batteryType
+    ORDER BY COUNT(b.batteryType) DESC
+    LIMIT 1
+""")
+    Optional<String> findDominantBatteryTypeAtStation(@Param("stationId") Integer stationId);
+
 }
