@@ -24,13 +24,13 @@ public class BatteryRebalanceController {
     private final StationRepository stationRepository;
     private final BatteryRepository batteryRepository; // ✅ thêm để BE tự chọn loại pin khi AI không có
 
-    @Operation(summary = "Lấy danh sách lệnh điều phối pin")
+    @Operation(summary = "Admin Lấy danh sách lệnh điều phối pin")
     @GetMapping
     public ResponseEntity<?> getAllOrders() {
         return ResponseEntity.ok(rebalanceService.getAllOrders());
     }
 
-    @Operation(summary = "Tạo lệnh điều phối mới (thủ công)")
+    @Operation(summary = "Tạo lệnh điều phối mới (staff và admin gửi yêu cầu thủ công)")
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody RebalanceRequest dto) {
         return ResponseEntity.ok(rebalanceService.createRebalanceOrder(dto));
@@ -44,13 +44,13 @@ public class BatteryRebalanceController {
         return ResponseEntity.ok(rebalanceService.updateStatus(id, status));
     }
 
-    @Operation(summary = "Gợi ý điều phối từ AI (Linear Programming)")
+    @Operation(summary = "Admin - Gợi ý điều phối từ AI (Linear Programming)")
     @GetMapping("/suggestions")
     public ResponseEntity<?> getAiSuggestions() {
         return ResponseEntity.ok(rebalanceService.getAiSuggestions());
     }
 
-    @Operation(summary = "Áp dụng gợi ý AI → tạo lệnh điều phối thực tế")
+    @Operation(summary = "Admin - Áp dụng gợi ý AI → tạo lệnh điều phối thực tế")
     @PostMapping("/apply-ai")
     public ResponseEntity<?> applyAiSuggestion(@RequestBody RebalanceSuggestion suggestion) {
         // ✅ Tìm trạm theo tên
