@@ -38,19 +38,20 @@ ORDER BY u.userId
 
 
     @Query("""
-    SELECT CASE WHEN COUNT(sa) > 0 THEN true ELSE false END
-    FROM StaffAssign sa
-    WHERE sa.stationId = :stationId
-      AND sa.user.userId = :userId
-      AND sa.isActive = true
-      AND sa.assignDate = (
-          SELECT MAX(sa2.assignDate)
-          FROM StaffAssign sa2
-          WHERE sa2.user.userId = :userId
-      )
-""")
+        SELECT CASE WHEN COUNT(sa) > 0 THEN true ELSE false END
+        FROM StaffAssign sa
+        WHERE sa.stationId = :stationId
+          AND sa.user.userId = :userId
+          AND sa.isActive = true
+          AND sa.assignDate = (
+              SELECT MAX(sa2.assignDate)
+              FROM StaffAssign sa2
+              WHERE sa2.user.userId = :userId
+          )
+    """)
     boolean existsActiveAssign(@Param("stationId") Integer stationId,
                                @Param("userId") String userId);
+
 
     List<StaffAssign> findAllByUser_UserId(String userId);
 
