@@ -87,6 +87,11 @@ public class Booking {
     @JsonIgnore // Tránh serialize Invoice object
     private Invoice invoice;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "RefundInvoiceId")
+    @JsonIgnore
+    private Invoice refundInvoice;
+
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
