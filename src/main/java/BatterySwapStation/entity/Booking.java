@@ -29,12 +29,12 @@ public class Booking {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "StationId", nullable = false)
+    @JoinColumn(name = "StationId") // ✅ Removed nullable = false to match database reality
     @JsonIgnore // Tránh serialize toàn bộ Station object
     private Station station;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "VehicleId", nullable = false)
+    @JoinColumn(name = "VehicleId") // ✅ Removed nullable = false to match database reality
     @JsonIgnore // Tránh serialize toàn bộ Vehicle object
     private Vehicle vehicle;
 
@@ -76,7 +76,7 @@ public class Booking {
     private String notes;
 
     // Lưu số pin muốn đổi (bị giới hạn bởi Vehicle.batteryCount)
-    @Column(name = "BatteryCount")
+    @Column(name = "batterycount")  // ✅ FIX: Dùng lowercase để khớp với PostgreSQL auto-convert
     private Integer batteryCount;
 
     @Column(name = "batterytype", length = 50)

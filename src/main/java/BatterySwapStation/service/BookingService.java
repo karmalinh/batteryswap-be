@@ -321,28 +321,44 @@ public class BookingService {
         // 🔹 2. Preload toàn bộ subscription (1 query duy nhất)
         List<UserSubscription> subscriptions = userSubscriptionRepository.findByUser_UserIdOrderByStartDateDesc(userId);
 
-        // 🔹 3. Map sang BookingResponse (giữ format cũ)
+        // 🔹 3. Lấy user info (1 query)
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User không tồn tại: " + userId));
+
+        // 🔹 4. Map sang BookingResponse
         return bookings.stream().map(b -> {
             BookingResponse res = new BookingResponse();
+
+            // Thông tin booking
             res.setBookingId(b.getBookingId());
             res.setBookingDate(b.getBookingDate());
             res.setTimeSlot(b.getTimeSlot());
             res.setBookingStatus(b.getBookingStatus().name());
             res.setAmount(b.getAmount());
+            res.setNotes(b.getNotes());
+
+            // ✅ Thông tin user
+            res.setUserId(user.getUserId());
+            res.setUserName(user.getFullName());
+
+            // Thông tin trạm
             res.setStationId(b.getStationId());
             res.setStationName(b.getStationName());
             res.setStationAddress(b.getStationAddress());
+
+            // Thông tin xe
             res.setVehicleId(b.getVehicleId());
             res.setVehicleVin(b.getVehicleVin());
-            res.setVehicleType(
-                    b.getVehicleType() != null ? b.getVehicleType().name() : null
-            );
-            res.setInvoiceId(b.getInvoiceId() != null ? String.valueOf(b.getInvoiceId()) : null);
-            res.setBookingStatus(b.getBookingStatus().name());
-            res.setAmount(b.getAmount());
-            res.setTotalSwapLimit(null); // set sau nếu có subscription
+            res.setVehicleType(b.getVehicleType() != null ? b.getVehicleType().name() : null);
 
-            // 🔸 Logic Free Swap
+            // ✅ Thông tin pin - FIX: lấy từ BookingSimpleDto
+            res.setBatteryCount(b.getBatteryCount());
+            res.setBatteryType(b.getBatteryType());
+
+            // Thông tin hóa đơn
+            res.setInvoiceId(b.getInvoiceId() != null ? String.valueOf(b.getInvoiceId()) : null);
+
+            // 🔸 Logic Free Swap - tìm subscription phù hợp
             UserSubscription matchedSub = null;
             if (b.getTotalPrice() != null && b.getTotalPrice() == 0.0 && b.getInvoiceCreatedDate() != null) {
                 LocalDateTime createdAt = b.getInvoiceCreatedDate();
@@ -362,9 +378,12 @@ public class BookingService {
                 res.setTotalSwapLimit(plan.getSwapLimit());
             } else {
                 res.setIsFreeSwap(false);
+                res.setSubscriptionPlanName(null);
+                res.setUsedSwaps(null);
+                res.setTotalSwapLimit(null);
             }
 
-            // 🔹 Payment info (nếu cần, để trống nếu không fetch)
+            // 🔹 Payment info - không cần thiết cho booking history
             res.setPayment(null);
 
             return res;
@@ -1151,6 +1170,7 @@ public class BookingService {
                     .station(station)
                     .vehicle(vehicle)
                     .vehicleType(vehicle.getVehicleType() != null ? vehicle.getVehicleType().toString() : "UNKNOWN")
+                    .batteryType(vehicle.getBatteryType() != null ? vehicle.getBatteryType().toString() : "UNKNOWN")
                     .amount(request.getPaidAmount())
                     .batteryCount(request.getQuantity())
                     .bookingDate(bookingDate)
