@@ -1,5 +1,6 @@
 package BatterySwapStation.service;
 
+import BatterySwapStation.dto.VehicleMyResponse;
 import BatterySwapStation.dto.VehicleRegistrationRequest;
 import BatterySwapStation.dto.VehicleInfoResponse;
 import BatterySwapStation.dto.VehicleSimpleResponse;
@@ -173,8 +174,30 @@ public class VehicleService {
     }
 
 
+    public List<VehicleMyResponse> getMyVehiclesResponse(String userId) {
+        List<Vehicle> vehicles = getActiveUserVehicles(userId);
+
+        return vehicles.stream().map(v -> {
+            VehicleMyResponse dto = new VehicleMyResponse();
+            dto.setVehicleId(v.getVehicleId());
+            dto.setVehicleType(v.getVehicleType() != null ? v.getVehicleType().toString() : null);
+            dto.setBatteryType(v.getBatteryType() != null ? v.getBatteryType().toString() : null);
+            dto.setManufactureDate(v.getManufactureDate() != null ? v.getManufactureDate().toString() : null);
+            dto.setPurchaseDate(v.getPurchaseDate() != null ? v.getPurchaseDate().toString() : null);
+            dto.setLicensePlate(v.getLicensePlate());
+            dto.setColor(v.getColor());
+            dto.setBatteryCount(v.getBatteryCount());
+            dto.setOwnerName(v.getOwnerName());
+            dto.setActive(v.isActive());
+            dto.setVin(v.getVIN());
+            return dto;
+        }).toList();
+    }
+
+
     @Transactional(readOnly = true)
     public int countVehiclesByUserId(String userId) {
         return vehicleRepository.countByUserId(userId);
     }
 }
+

@@ -52,11 +52,11 @@ public class VehicleController {
     }
 
     @GetMapping("/my-vehicles")
-    @Operation(summary = "Lấy danh sách phương tiện đang hoạt động của người dùng hiện tại")
-    public ResponseEntity<List<Vehicle>> getMyActiveVehicles(@AuthenticationPrincipal User user) {
-        List<Vehicle> vehicles = vehicleService.getActiveUserVehicles(user.getUserId());
-        return ResponseEntity.ok(vehicles);
+    public ResponseEntity<List<VehicleMyResponse>> getMyVehicles(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(vehicleService.getMyVehiclesResponse(user.getUserId()));
     }
+
+
 
     @PostMapping("/{vehicleId}/deactivate")
     @Operation(summary = "Hủy kích hoạt phương tiện")
