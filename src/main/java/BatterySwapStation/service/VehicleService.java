@@ -2,6 +2,7 @@ package BatterySwapStation.service;
 
 import BatterySwapStation.dto.VehicleRegistrationRequest;
 import BatterySwapStation.dto.VehicleInfoResponse;
+import BatterySwapStation.dto.VehicleSimpleResponse;
 import BatterySwapStation.entity.User;
 import BatterySwapStation.entity.Vehicle;
 import BatterySwapStation.repository.UserRepository;
@@ -153,9 +154,24 @@ public class VehicleService {
         vehicleRepository.save(vehicle);
     }
 
-    public List<Vehicle> getUnassignedVehicles() {
-        return vehicleRepository.findUnassignedVehicles();
+    public List<VehicleSimpleResponse> getUnassignedVehiclesSimple() {
+        List<Vehicle> vehicles = vehicleRepository.findUnassignedVehicles();
+
+        return vehicles.stream().map(v -> {
+            VehicleSimpleResponse dto = new VehicleSimpleResponse();
+            dto.setVehicleId(v.getVehicleId());
+            dto.setVIN(v.getVIN());
+            dto.setVehicleType(v.getVehicleType() != null ? v.getVehicleType().toString() : null);
+            dto.setBatteryType(v.getBatteryType() != null ? v.getBatteryType().toString() : null);
+            dto.setBatteryCount(v.getBatteryCount());
+            dto.setOwnerName(v.getOwnerName());
+            dto.setColor(v.getColor());
+            dto.setLicensePlate(v.getLicensePlate());
+            dto.setActive(v.isActive());
+            return dto;
+        }).toList();
     }
+
 
     @Transactional(readOnly = true)
     public int countVehiclesByUserId(String userId) {

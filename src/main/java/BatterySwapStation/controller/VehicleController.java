@@ -1,9 +1,6 @@
 package BatterySwapStation.controller;
 
-import BatterySwapStation.dto.ApiResponse;
-import BatterySwapStation.dto.AssignVehicleRequest;
-import BatterySwapStation.dto.VehicleRegistrationRequest;
-import BatterySwapStation.dto.VehicleInfoResponse;
+import BatterySwapStation.dto.*;
 import BatterySwapStation.entity.User;
 import BatterySwapStation.entity.Vehicle;
 import BatterySwapStation.service.VehicleService;
@@ -71,10 +68,8 @@ public class VehicleController {
     }
 
     @GetMapping("/unassigned")
-    @Operation(summary = "Lấy danh sách phương tiện chưa có chủ")
-    public ResponseEntity<List<Vehicle>> getUnassignedVehicles() {
-        List<Vehicle> vehicles = vehicleService.getUnassignedVehicles();
-        return ResponseEntity.ok(vehicles);
+    public ResponseEntity<List<VehicleSimpleResponse>> getUnassignedVehicles() {
+        return ResponseEntity.ok(vehicleService.getUnassignedVehiclesSimple());
     }
 
 }
