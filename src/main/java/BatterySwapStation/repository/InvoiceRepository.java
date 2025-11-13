@@ -121,6 +121,16 @@ ORDER BY i.createdDate DESC
 """)
     List<Invoice> findByUserIdWithFullDetails(@Param("userId") String userId);
 
+    @Query("""
+SELECT DISTINCT i FROM Invoice i
+LEFT JOIN FETCH i.refundedBookings rb
+LEFT JOIN FETCH rb.station
+LEFT JOIN FETCH rb.vehicle
+WHERE i IN :invoices
+""")
+    List<Invoice> fetchRefundedBookings(@Param("invoices") List<Invoice> invoices);
+
+
     /**
      * ⚡ Batch fetch payments cho nhiều invoices cùng lúc
      * Tránh N+1 problem khi cần payments cho nhiều invoices

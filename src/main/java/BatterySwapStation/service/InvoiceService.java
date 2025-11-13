@@ -414,6 +414,15 @@ public class InvoiceService {
 
     @Transactional(readOnly = true)
     public InvoiceSimpleResponseDTO buildInvoiceSimpleFromFetched(Invoice invoice) {
+
+        if (invoice.getRefundedBookings() != null && !invoice.getRefundedBookings().isEmpty()) {
+
+            if (invoice.getBookings() == null) {
+                invoice.setBookings(new java.util.ArrayList<>());
+            }
+
+            invoice.getBookings().addAll(invoice.getRefundedBookings());
+        }
         // ✅ Dữ liệu đã được JOIN FETCH -> không cần query lại
         List<InvoiceSimpleResponseDTO.SimpleBookingInfo> simpleBookings = invoice.getBookings().stream()
                 .map(booking -> InvoiceSimpleResponseDTO.SimpleBookingInfo.builder()

@@ -15,6 +15,7 @@ import BatterySwapStation.repository.UserSubscriptionRepository;
 import BatterySwapStation.entity.UserSubscription;
 import BatterySwapStation.entity.SubscriptionPlan;
 import BatterySwapStation.entity.Invoice;
+import BatterySwapStation.service.InvoiceService;
 import BatterySwapStation.entity.User;
 import org.springframework.context.event.EventListener;
 
