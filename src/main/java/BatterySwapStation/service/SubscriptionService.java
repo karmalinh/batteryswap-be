@@ -593,4 +593,12 @@ public class SubscriptionService {
     }
 
 
+    /** Đếm số lượng gói cước SubscriptionPlan có sẵn.
+     *
+     */
+    @Transactional(readOnly = true)
+    public int countAvailableSubscriptionPlans() {
+        long total = subscriptionPlanRepository.count();
+        return (int) Math.min(total, Integer.MAX_VALUE);
+    }
 }

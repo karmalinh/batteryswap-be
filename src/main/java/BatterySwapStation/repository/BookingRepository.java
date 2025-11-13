@@ -174,4 +174,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                                             @Param("date") LocalDate date,
                                             @Param("timeSlot") LocalTime timeSlot);
 
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.bookingStatus = :status")
+    Long countByStatus(@Param("status") BatterySwapStation.entity.Booking.BookingStatus status);
+
+    // ========== NEW USER-SCOPED METHODS ==========
+    // Đếm booking theo user và trạng thái
+    Long countByUser_UserIdAndBookingStatus(String userId, BatterySwapStation.entity.Booking.BookingStatus bookingStatus);
+
+    // Đếm số lượng trạm khác nhau mà user đã có booking (dùng cho dashboard)
+    @Query("SELECT COUNT(DISTINCT b.station.stationId) FROM Booking b WHERE b.user.userId = :userId")
+    Long countDistinctStationsByUser(@Param("userId") String userId);
 }

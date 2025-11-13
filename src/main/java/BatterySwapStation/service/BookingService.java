@@ -1898,6 +1898,20 @@ public class BookingService {
     @Getter
     private String paymentMethod;
 
+    /**
+     * Đếm số lượng booking đang ở trạng thái PENDINGSWAPPING
+     */
+    @Transactional(readOnly = true)
+    public int countPendingSwappingBookingsForUser(String userId) {
+        if (userId == null) return 0;
+        Long count = bookingRepository.countByUser_UserIdAndBookingStatus(userId, Booking.BookingStatus.PENDINGSWAPPING);
+        return count == null ? 0 : count.intValue();
+    }
 
+    @Transactional(readOnly = true)
+    public int countDistinctStationsForUser(String userId) {
+        if (userId == null) return 0;
+        Long count = bookingRepository.countDistinctStationsByUser(userId);
+        return count == null ? 0 : count.intValue();
+    }
 }
-
