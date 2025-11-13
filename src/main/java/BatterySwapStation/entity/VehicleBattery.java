@@ -1,5 +1,6 @@
 package BatterySwapStation.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ public class VehicleBattery {
     // ============================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "VehicleId", nullable = false)
+    @JsonBackReference
     private Vehicle vehicle;
 
     // ============================

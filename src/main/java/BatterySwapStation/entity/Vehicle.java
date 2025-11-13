@@ -1,6 +1,7 @@
 package BatterySwapStation.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -69,6 +70,7 @@ public class Vehicle {
     private String ownerName;
 
     @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<VehicleBattery> vehicleBatteries = new ArrayList<>();
 
 
