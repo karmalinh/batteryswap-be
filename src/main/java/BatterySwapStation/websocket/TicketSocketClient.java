@@ -51,7 +51,7 @@ public class TicketSocketClient {
 
                         @Override
                         public void handleTransportError(StompSession session, Throwable ex) {
-                            log.error("❌ [LOCAL SOCKET] Transport error: {}", ex.getMessage());
+                            log.error("[LOCAL SOCKET] Transport error: {}", ex.getMessage());
                         }
                     }
             );
