@@ -22,9 +22,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByUser(User user);
 
     /**
-     * ✅ [THÊM MỚI] - SỬA LỖI HIỆU NĂNG (N+1)
-     * Dùng 'JOIN FETCH' để tải tất cả dữ liệu liên quan
-     * (User, Station, Vehicle, Invoice, Payments) trong 1 CÂU QUERY DUY NHẤT.
+     * SỬA LỖI HIỆU NĂNG (N+1)
+     * ĐÃ ĐƯỢC XÁC NHẬN ĐỦ 21 TRƯỜNG VÀ KHỚP VỚI DTO
      */
     @Query("""
     SELECT new BatterySwapStation.dto.BookingSimpleDto(
@@ -44,6 +43,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         b.batteryCount,
         b.batteryType,
         b.notes,
+        b.cancellationReason,
+        b.completedTime,
         i.invoiceId,
         i.totalAmount,
         i.invoiceStatus,

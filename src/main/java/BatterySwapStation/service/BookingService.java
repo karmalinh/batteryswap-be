@@ -337,6 +337,8 @@ public class BookingService {
             res.setBookingStatus(b.getBookingStatus().name());
             res.setAmount(b.getAmount());
             res.setNotes(b.getNotes());
+            res.setCancellationReason(b.getCancellationReason());
+            res.setCompletedTime(b.getCompletedTime());
 
             // ✅ Thông tin user
             res.setUserId(user.getUserId());

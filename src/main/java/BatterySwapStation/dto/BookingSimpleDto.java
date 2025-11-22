@@ -26,20 +26,21 @@ public class BookingSimpleDto {
 
     private Integer vehicleId;
     private String vehicleVin;
-    private Vehicle.VehicleType vehicleType;  // ⚠️ sửa kiểu này từ String → VehicleType
+    private Vehicle.VehicleType vehicleType;
     private String licensePlate;
 
-    // ✅ Thêm batteryCount, batteryType, notes
     private Integer batteryCount;
-    private String batteryType;  // ⚠️ Giữ String vì Booking entity dùng String
+    private String batteryType;
     private String notes;
+    private String cancellationReason;
+    private LocalDate completedTime;
 
     private Long invoiceId;
     private Double totalAmount;
     private Invoice.InvoiceStatus invoiceStatus;
     private LocalDateTime invoiceCreatedDate;
 
-    // ⚡ Thêm constructor chuẩn để JPA match chính xác
+    // CONSTRUCTOR 21 THAM SỐ PHẢI KHỚP TUYỆT ĐỐI VỚI JPQL
     public BookingSimpleDto(
             Long bookingId,
             LocalDate bookingDate,
@@ -52,11 +53,13 @@ public class BookingSimpleDto {
             String stationAddress,
             Integer vehicleId,
             String vehicleVin,
-            Vehicle.VehicleType vehicleType,   // ⚠️ trùng enum entity
+            Vehicle.VehicleType vehicleType,
             String licensePlate,
-            Integer batteryCount,               // ✅ Thêm
-            String batteryType,                 // ✅ Thêm (String, không phải enum)
-            String notes,                       // ✅ Thêm
+            Integer batteryCount,
+            String batteryType,
+            String notes,
+            String cancellationReason,
+            LocalDate completedTime,
             Long invoiceId,
             Double totalAmount,
             Invoice.InvoiceStatus invoiceStatus,
@@ -75,12 +78,15 @@ public class BookingSimpleDto {
         this.vehicleVin = vehicleVin;
         this.vehicleType = vehicleType;
         this.licensePlate = licensePlate;
-        this.batteryCount = batteryCount;      // ✅ Thêm
-        this.batteryType = batteryType;        // ✅ Thêm
-        this.notes = notes;                    // ✅ Thêm
+        this.batteryCount = batteryCount;
+        this.batteryType = batteryType;
+        this.notes = notes;
+        this.cancellationReason = cancellationReason;
+        this.completedTime = completedTime;
         this.invoiceId = invoiceId;
         this.totalAmount = totalAmount;
         this.invoiceStatus = invoiceStatus;
         this.invoiceCreatedDate = invoiceCreatedDate;
     }
+
 }
